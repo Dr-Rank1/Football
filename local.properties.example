@@ -1,0 +1,5 @@
+sdk.dir=/path/to/Android/Sdk
+API_FOOTBALL_KEY=your_api_key_here
+GEMINI_API_KEY=your_gemini_key_here
+# JSON catalog mapping fixture IDs to HLS/DASH stream URLs (required for watchable matches)
+STREAM_CATALOG_URL=https://your-server.example/streams.json

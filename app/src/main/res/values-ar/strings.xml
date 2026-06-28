@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rank Football</string>
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_live">مباشر</string>
+    <string name="nav_fixtures">المباريات</string>
+    <string name="nav_leagues">الدوريات</string>
+    <string name="live_status">مباشر</string>
+    <string name="section_recommended">🎯 مختار لك</string>
+</resources>

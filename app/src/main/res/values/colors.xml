@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#0A0A0F</color>
+    <color name="stadium_black">#0A0A0F</color>
+    <color name="pitch_green">#00E676</color>
+    <color name="live_red">#FF1744</color>
+    <color name="text_grey">#9E9E9E</color>
+</resources>

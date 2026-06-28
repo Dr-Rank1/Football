@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Rank Football</string>
+    <string name="nav_home">Início</string>
+    <string name="nav_live">Ao vivo</string>
+    <string name="nav_fixtures">Jogos</string>
+    <string name="nav_leagues">Ligas</string>
+    <string name="live_status">AO VIVO</string>
+    <string name="section_recommended">🎯 Escolhido para você</string>
+</resources>
