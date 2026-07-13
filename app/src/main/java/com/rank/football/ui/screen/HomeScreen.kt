@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -12,7 +13,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -21,12 +24,15 @@ import com.rank.football.R
 import com.rank.football.ads.AdConstants
 import com.rank.football.ui.components.AppScreenHeader
 import com.rank.football.ui.components.BannerAdView
+import com.rank.football.ui.components.FavouritesStrip
 import com.rank.football.ui.components.HeroBanner
 import com.rank.football.ui.components.NoStreamsContext
 import com.rank.football.ui.components.NoStreamsEmptyState
+import com.rank.football.ui.components.PreMatchHypeCard
 import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.HomeViewModel
+import com.rank.football.viewmodel.LeagueGroup
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -43,11 +49,50 @@ fun HomeScreen(
     val todayMatches by viewModel.todayMatches.collectAsState()
     val favoriteFixtures by viewModel.favoriteFixtures.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
+    val filterTeamId by viewModel.filterTeamId.collectAsState()
+    val hypeFixture by viewModel.hypeFixture.collectAsState()
+    val hypeH2H by viewModel.hypeH2H.collectAsState()
+    val hypeHomeForm by viewModel.hypeHomeForm.collectAsState()
+    val hypeAwayForm by viewModel.hypeAwayForm.collectAsState()
 
-    val fullyEmpty = liveMatches is Result.Success &&
-        (liveMatches as Result.Success).data.isEmpty() &&
-        todayMatches is Result.Success &&
-        (todayMatches as Result.Success).data.isEmpty()
+    val listState = rememberLazyListState()
+    val parallaxOffset by remember {
+        derivedStateOf {
+            if (listState.firstVisibleItemIndex == 0) {
+                listState.firstVisibleItemScrollOffset.toFloat()
+            } else {
+                400f
+            }
+        }
+    }
+
+    fun filterFixtures(list: List<com.rank.football.data.model.FixtureItem>) =
+        if (filterTeamId == null) list else list.filter {
+            it.teams.home.id == filterTeamId || it.teams.away.id == filterTeamId
+        }
+
+    val filteredLive: Result<List<com.rank.football.data.model.FixtureItem>> = when (val r = liveMatches) {
+        is Result.Success -> Result.Success(filterFixtures(r.data))
+        else -> r
+    }
+    val filteredToday: Result<List<LeagueGroup>> = when (val r = todayMatches) {
+        is Result.Success -> Result.Success(
+            r.data.map { g -> g.copy(fixtures = filterFixtures(g.fixtures)) }
+                .filter { it.fixtures.isNotEmpty() }
+        )
+        else -> r
+    }
+    val filteredFavorites: Result<List<com.rank.football.data.model.FixtureItem>> = when (val r = favoriteFixtures) {
+        is Result.Success -> Result.Success(filterFixtures(r.data))
+        else -> r
+    }
+
+    val liveList = (liveMatches as? Result.Success)?.data.orEmpty()
+
+    val fullyEmpty = filteredLive is Result.Success &&
+        (filteredLive as Result.Success).data.isEmpty() &&
+        filteredToday is Result.Success &&
+        (filteredToday as Result.Success).data.isEmpty()
 
     androidx.compose.foundation.layout.Column(
         modifier = modifier
@@ -67,6 +112,14 @@ fun HomeScreen(
             }
         )
 
+        FavouritesStrip(
+            favorites = favorites,
+            liveFixtures = liveList,
+            selectedTeamId = filterTeamId,
+            onTeamClick = { viewModel.setFilterTeamId(it) },
+            modifier = Modifier.padding(bottom = 8.dp, top = 4.dp)
+        )
+
         if (fullyEmpty && liveMatches !is Result.Loading && todayMatches !is Result.Loading) {
             NoStreamsEmptyState(
                 context = NoStreamsContext.HOME,
@@ -79,32 +132,47 @@ fun HomeScreen(
             )
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(bottom = 8.dp)
             ) {
                 item {
                     HeroBanner(
                         fixtures = viewModel.featuredMatches(),
-                        onWatchClick = onMatchClick
+                        onWatchClick = onMatchClick,
+                        parallaxOffsetPx = parallaxOffset
                     )
                 }
 
+                hypeFixture?.let { hype ->
+                    item {
+                        PreMatchHypeCard(
+                            fixture = hype,
+                            h2h = hypeH2H,
+                            homeForm = hypeHomeForm,
+                            awayForm = hypeAwayForm,
+                            onClick = { onMatchClick(hype.fixture.id) },
+                            cardModifier = Modifier.padding(top = 16.dp)
+                        )
+                    }
+                }
+
                 homeLiveSection(
-                    liveMatches = liveMatches,
+                    liveMatches = filteredLive,
                     onMatchClick = onMatchClick,
                     favoritesRepository = viewModel.favoritesRepository,
                     onRetry = { viewModel.loadData() }
                 )
 
                 homeFavoritesSection(
-                    favoriteFixtures = favoriteFixtures,
+                    favoriteFixtures = filteredFavorites,
                     favoritesEmpty = favorites.isEmpty(),
                     onMatchClick = onMatchClick,
                     favoritesRepository = viewModel.favoritesRepository
                 )
 
                 homeTodaySection(
-                    todayMatches = todayMatches,
+                    todayMatches = filteredToday,
                     onMatchClick = onMatchClick,
                     favoritesRepository = viewModel.favoritesRepository,
                     onRetry = { viewModel.loadData() }

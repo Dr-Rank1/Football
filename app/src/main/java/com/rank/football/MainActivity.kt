@@ -12,6 +12,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EmojiEvents
@@ -44,10 +50,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.rank.football.data.model.FixtureItem
+import com.rank.football.ui.components.GoalToastHost
+import com.rank.football.ui.components.LiveGoalMonitor
+import com.rank.football.ui.components.LiveMatchBus
+import com.rank.football.ui.components.MiniPipPlayer
+import com.rank.football.ui.theme.TextWhite
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -255,6 +271,8 @@ private fun GoalStreamNav(
             "search", "settings", "language", "revenue", "analytics-dashboard"
         )
     var liveMatchCount by remember { mutableIntStateOf(0) }
+    var pipFixture by remember { mutableStateOf<FixtureItem?>(null) }
+    var latestLiveMatches by remember { mutableStateOf<List<FixtureItem>>(emptyList()) }
     val activity = LocalContext.current as MainActivity
     val context = LocalContext.current
     val config = LocalConfiguration.current
@@ -278,7 +296,21 @@ private fun GoalStreamNav(
     val rewardedInterstitial = remember { RewardedInterstitialManager(context) }
     LaunchedEffect(Unit) { rewardedInterstitial.loadAd() }
 
+    LiveGoalMonitor(enabled = true)
+    val busMatches by LiveMatchBus.matches.collectAsState(initial = emptyList())
+    LaunchedEffect(busMatches) {
+        if (busMatches.isNotEmpty() || liveMatchCount == 0) {
+            liveMatchCount = busMatches.size
+            latestLiveMatches = busMatches
+        }
+    }
+
     val navigateToWatch: (Int) -> Unit = { fixtureId ->
+        // Keep another live match as PiP when opening watch
+        val other = latestLiveMatches.firstOrNull { it.fixture.id != fixtureId }
+        if (other != null && liveMatchCount >= 2) {
+            pipFixture = other
+        }
         interstitialAdManager.showBeforeNavigation(activity) {
             navController.navigate("watch/$fixtureId")
         }
@@ -332,23 +364,21 @@ private fun GoalStreamNav(
                                     }
                                 },
                                 icon = {
-                                    Box {
-                                        item.icon()
-                                        if (item == BottomNavItem.Live && liveMatchCount > 0) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    .size(8.dp)
-                                                    .background(LiveRed, CircleShape)
-                                            )
-                                        }
-                                    }
+                                    LiveNavIcon(
+                                        selected = selected,
+                                        liveCount = if (item == BottomNavItem.Live) liveMatchCount else -1,
+                                        content = { item.icon() }
+                                    )
                                 },
                                 label = { Text(stringResource(item.labelRes)) },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = PitchGreen,
                                     selectedTextColor = PitchGreen,
-                                    unselectedIconColor = TextGrey,
+                                    unselectedIconColor = if (item == BottomNavItem.Live && liveMatchCount == 0) {
+                                        TextGrey.copy(alpha = 0.45f)
+                                    } else {
+                                        TextGrey
+                                    },
                                     indicatorColor = SurfaceDark
                                 )
                             )
@@ -384,6 +414,7 @@ private fun GoalStreamNav(
                     LiveScreen(
                         onMatchClick = navigateToWatch,
                         onLiveCountChanged = { liveMatchCount = it },
+                        onLiveMatchesChanged = { latestLiveMatches = it },
                         onBrowseFixtures = { navigateToTab("fixtures") },
                         onBrowseLeagues = { navigateToTab("leagues") }
                     )
@@ -467,7 +498,81 @@ private fun GoalStreamNav(
                 }
             }
         }
+            GoalToastHost(
+                onOpenMatch = navigateToWatch,
+                hostModifier = Modifier.align(Alignment.TopCenter)
+            )
+            pipFixture?.let { pip ->
+                if (currentRoute?.startsWith("watch") != true) {
+                    MiniPipPlayer(
+                        fixture = pip,
+                        onExpand = {
+                            val id = pip.fixture.id
+                            pipFixture = null
+                            navigateToWatch(id)
+                        },
+                        onDismiss = { pipFixture = null },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 12.dp, bottom = if (showBottomBar) 8.dp else 24.dp)
+                    )
+                }
+            }
         }
         NetworkBanner(visible = !isOnline)
+    }
+}
+
+@Composable
+private fun LiveNavIcon(
+    selected: Boolean,
+    liveCount: Int,
+    content: @Composable () -> Unit
+) {
+    if (liveCount < 0) {
+        content()
+        return
+    }
+    val pulse = rememberInfiniteTransition(label = "live_nav")
+    val scale by pulse.animateFloat(
+        initialValue = 1f,
+        targetValue = if (liveCount >= 5) 1.12f else 1f,
+        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
+        label = "live_scale"
+    )
+    Box {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                alpha = if (liveCount == 0) 0.45f else 1f
+                scaleX = if (liveCount >= 5) scale else 1f
+                scaleY = if (liveCount >= 5) scale else 1f
+            }
+        ) {
+            content()
+        }
+        when {
+            liveCount >= 5 -> {
+                Text(
+                    text = if (liveCount > 9) "9+" else "$liveCount",
+                    color = TextWhite,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(LiveRed)
+                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                )
+            }
+            liveCount > 0 -> {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(8.dp)
+                        .background(LiveRed, CircleShape)
+                )
+            }
+        }
     }
 }

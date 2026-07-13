@@ -6,8 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.model.FixtureItem
+import com.rank.football.data.model.isFinished
+import com.rank.football.data.model.isUpcoming
 import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.data.repository.FootballRepository
+import com.rank.football.ui.components.HypeH2H
 import com.rank.football.util.Result
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 data class LeagueGroup(
     val leagueId: Int,
@@ -44,6 +48,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _favoriteFixtures = MutableStateFlow<Result<List<FixtureItem>>>(Result.Loading)
     val favoriteFixtures: StateFlow<Result<List<FixtureItem>>> = _favoriteFixtures.asStateFlow()
 
+    private val _filterTeamId = MutableStateFlow<Int?>(null)
+    val filterTeamId: StateFlow<Int?> = _filterTeamId.asStateFlow()
+
+    private val _hypeFixture = MutableStateFlow<FixtureItem?>(null)
+    val hypeFixture: StateFlow<FixtureItem?> = _hypeFixture.asStateFlow()
+
+    private val _hypeH2H = MutableStateFlow<HypeH2H?>(null)
+    val hypeH2H: StateFlow<HypeH2H?> = _hypeH2H.asStateFlow()
+
+    private val _hypeHomeForm = MutableStateFlow("")
+    val hypeHomeForm: StateFlow<String> = _hypeHomeForm.asStateFlow()
+
+    private val _hypeAwayForm = MutableStateFlow("")
+    val hypeAwayForm: StateFlow<String> = _hypeAwayForm.asStateFlow()
+
     val favorites = favoritesRepository.allFavorites.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -60,6 +79,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 _favoriteFixtures.value = Result.Success(fixtures)
             }
         }
+    }
+
+    fun setFilterTeamId(teamId: Int?) {
+        _filterTeamId.value = teamId
+    }
+
+    fun matchesTeamFilter(fixture: FixtureItem): Boolean {
+        val id = _filterTeamId.value ?: return true
+        return fixture.teams.home.id == id || fixture.teams.away.id == id
     }
 
     fun loadData() {
@@ -87,14 +115,69 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 repository.getTodayFixtures() + repository.getWorldCupFixtures()
             ).distinctBy { it.fixture.id }
             _todayMatches.value = Result.Success(groupByLeague(fixtures))
+            loadHypeCard(fixtures)
+        }
+    }
+
+    private fun loadHypeCard(fixtures: List<FixtureItem>) {
+        viewModelScope.launch(exceptionHandler) {
+            val upcoming = fixtures
+                .filter { it.isUpcoming() }
+                .mapNotNull { f ->
+                    val ms = runCatching {
+                        Instant.parse(f.fixture.date).toEpochMilli() - System.currentTimeMillis()
+                    }.getOrNull() ?: return@mapNotNull null
+                    f to ms
+                }
+                .filter { it.second in 0..(90 * 60 * 1000L) }
+                .minByOrNull { it.second }
+                ?.first
+
+            _hypeFixture.value = upcoming
+            if (upcoming == null) {
+                _hypeH2H.value = null
+                _hypeHomeForm.value = ""
+                _hypeAwayForm.value = ""
+                return@launch
+            }
+
+            val homeId = upcoming.teams.home.id
+            val awayId = upcoming.teams.away.id
+            if (homeId != null && awayId != null) {
+                val h2h = repository.getHeadToHead(homeId, awayId)
+                var hw = 0; var d = 0; var aw = 0
+                h2h.filter { it.isFinished() }.forEach { m ->
+                    val hg = m.goals.home ?: return@forEach
+                    val ag = m.goals.away ?: return@forEach
+                    when {
+                        hg > ag && m.teams.home.id == homeId -> hw++
+                        ag > hg && m.teams.away.id == homeId -> hw++
+                        hg > ag && m.teams.home.id == awayId -> aw++
+                        ag > hg && m.teams.away.id == awayId -> aw++
+                        hg == ag -> d++
+                    }
+                }
+                _hypeH2H.value = HypeH2H(hw, d, aw)
+                val season = upcoming.league.season ?: java.time.Year.now().value
+                _hypeHomeForm.value = repository.getTeamForm(homeId, upcoming.league.id, season)
+                    .takeIf { it != "N/A" }.orEmpty()
+                _hypeAwayForm.value = repository.getTeamForm(awayId, upcoming.league.id, season)
+                    .takeIf { it != "N/A" }.orEmpty()
+            }
         }
     }
 
     fun featuredMatches(): List<FixtureItem> {
         val live = (_liveMatches.value as? Result.Success)?.data.orEmpty()
+            .filter { matchesTeamFilter(it) }
         val today = (_todayMatches.value as? Result.Success)?.data
             ?.flatMap { it.fixtures }.orEmpty()
-        return (live + today).distinctBy { it.fixture.id }.take(3)
+            .filter { matchesTeamFilter(it) }
+        val hype = _hypeFixture.value
+        // Prefer live; if none and hype is live-transitioning, include it once kickoff hits
+        return (live + today).distinctBy { it.fixture.id }.take(3).ifEmpty {
+            listOfNotNull(hype)
+        }
     }
 
     private fun groupByLeague(fixtures: List<FixtureItem>): List<LeagueGroup> {
