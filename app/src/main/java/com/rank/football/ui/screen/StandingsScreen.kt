@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +27,7 @@ import com.rank.football.R
 import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.local.CachedStanding
 import com.rank.football.ui.components.DetailBackHeader
+import com.rank.football.ui.components.GoalsSparkline
 import com.rank.football.ui.theme.CardDark
 import com.rank.football.ui.theme.GoalYellow
 import com.rank.football.ui.theme.LiveRed
@@ -68,6 +70,7 @@ fun StandingsScreen(leagueId: Int, onBack: () -> Unit) {
                 )
                 Text("P", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(28.dp))
                 Text("GD", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(32.dp))
+                Text("GF/GA", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
                 Text("Pts", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
             }
         }
@@ -92,7 +95,8 @@ private fun StandingRow(row: CachedStanding, totalTeams: Int) {
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, accent.copy(alpha = if (accent == SurfaceDark) 1f else 0.35f), RoundedCornerShape(12.dp))
             .background(if (accent == SurfaceDark) CardDark else accent.copy(alpha = 0.1f))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             "${row.position}",
@@ -108,6 +112,11 @@ private fun StandingRow(row: CachedStanding, totalTeams: Int) {
         )
         Text("${row.played}", color = TextGrey, modifier = Modifier.width(28.dp))
         Text("${row.goalsFor - row.goalsAgainst}", color = TextGrey, modifier = Modifier.width(32.dp))
+        GoalsSparkline(
+            goalsFor = row.goalsFor,
+            goalsAgainst = row.goalsAgainst,
+            modifier = Modifier.width(40.dp)
+        )
         Text(
             "${row.points}",
             color = PitchGreen,

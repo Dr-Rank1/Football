@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 fun LiveScreen(
     onMatchClick: (Int) -> Unit,
     onLiveCountChanged: (Int) -> Unit,
+    onLiveMatchesChanged: (List<com.rank.football.data.model.FixtureItem>) -> Unit = {},
     onBrowseFixtures: () -> Unit = {},
     onBrowseLeagues: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -47,7 +48,9 @@ fun LiveScreen(
 
     LaunchedEffect(liveMatches) {
         if (liveMatches is Result.Success) {
-            onLiveCountChanged((liveMatches as Result.Success).data.size)
+            val data = (liveMatches as Result.Success).data
+            onLiveCountChanged(data.size)
+            onLiveMatchesChanged(data)
         }
     }
 

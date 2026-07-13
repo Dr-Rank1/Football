@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -58,7 +59,9 @@ import kotlinx.coroutines.isActive
 fun HeroBanner(
     fixtures: List<FixtureItem>,
     onWatchClick: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Scroll offset in px — image translates at 0.4× for parallax depth. */
+    parallaxOffsetPx: Float = 0f
 ) {
     if (fixtures.isEmpty()) return
 
@@ -79,6 +82,9 @@ fun HeroBanner(
                 .fillMaxWidth()
                 .height(220.dp)
                 .clip(RoundedCornerShape(20.dp))
+                .graphicsLayer {
+                    translationY = (parallaxOffsetPx * 0.4f).coerceIn(0f, 140f)
+                }
         ) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 Crossfade(targetState = featured[page], label = "hero") { fixture ->

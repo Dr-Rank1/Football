@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -28,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -179,33 +179,44 @@ fun NoStreamsEmptyState(
 
 @Composable
 private fun PitchIllustration() {
+    val line = androidx.compose.ui.graphics.Color(0xFF1A1A28)
+    val pitch = androidx.compose.ui.graphics.Color(0xFF12121C)
     Box(
         modifier = Modifier
-            .size(100.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(PitchGreen.copy(alpha = 0.12f))
-            .border(1.dp, PitchGreen.copy(alpha = 0.25f), RoundedCornerShape(16.dp)),
+            .size(width = 160.dp, height = 100.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(pitch)
+            .border(1.dp, line, RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .border(2.dp, PitchGreen.copy(alpha = 0.4f), CircleShape)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .background(PitchGreen.copy(alpha = 0.25f))
-        )
-        Text(
-            text = "⏸",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .background(StadiumBlack.copy(alpha = 0.5f), CircleShape)
-                .padding(8.dp)
-        )
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(100.dp).padding(8.dp)) {
+            val stroke = 2.5f
+            val w = size.width
+            val h = size.height
+            // Outer pitch
+            drawRoundRect(
+                color = line,
+                topLeft = Offset(0f, 0f),
+                size = androidx.compose.ui.geometry.Size(w, h),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(stroke)
+            )
+            // Halfway line
+            drawLine(line, Offset(w / 2f, 0f), Offset(w / 2f, h), stroke)
+            // Centre circle
+            drawCircle(line, radius = h * 0.18f, center = Offset(w / 2f, h / 2f), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+            drawCircle(line, radius = 3f, center = Offset(w / 2f, h / 2f))
+            // Penalty boxes
+            val boxW = w * 0.16f
+            val boxH = h * 0.55f
+            drawRect(line, Offset(0f, (h - boxH) / 2f), androidx.compose.ui.geometry.Size(boxW, boxH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+            drawRect(line, Offset(w - boxW, (h - boxH) / 2f), androidx.compose.ui.geometry.Size(boxW, boxH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+            // 6-yard boxes
+            val sixW = w * 0.07f
+            val sixH = h * 0.28f
+            drawRect(line, Offset(0f, (h - sixH) / 2f), androidx.compose.ui.geometry.Size(sixW, sixH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+            drawRect(line, Offset(w - sixW, (h - sixH) / 2f), androidx.compose.ui.geometry.Size(sixW, sixH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+        }
     }
 }
 

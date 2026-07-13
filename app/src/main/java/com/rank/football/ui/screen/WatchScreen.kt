@@ -3,13 +3,12 @@ package com.rank.football.ui.screen
 import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,7 +27,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -42,6 +40,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +48,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -62,11 +62,13 @@ import androidx.media3.ui.PlayerView
 import com.rank.football.R
 import com.rank.football.ads.AdConstants
 import com.rank.football.ads.RewardedAdManager
-import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.displayScore
 import com.rank.football.data.model.isLive
 import com.rank.football.ui.components.BannerAdView
+import com.rank.football.ui.components.GoalAlert
+import com.rank.football.ui.components.GoalAlertBus
 import com.rank.football.ui.components.LiveBadge
+import com.rank.football.ui.components.MatchTimeline
 import com.rank.football.ui.theme.LiveRed
 import com.rank.football.ui.theme.NeonGreen
 import com.rank.football.ui.theme.PitchGreen
@@ -106,9 +108,12 @@ fun WatchScreen(
     val playbackSources by viewModel.playbackSources.collectAsState()
     val playerState by viewModel.playerState.collectAsState()
     val isMuted by viewModel.isMuted.collectAsState()
+    val events by viewModel.events.collectAsState()
+    val newGoal by viewModel.newGoalDetected.collectAsState()
 
     var showControls by remember { mutableStateOf(true) }
     var controlsKey by remember { mutableIntStateOf(0) }
+    var dismissOffset by remember { mutableFloatStateOf(0f) }
 
     val fixture = (fixtureResult as? Result.Success)?.data
     val isLiveMatch = fixture?.isLive() == true
@@ -124,6 +129,30 @@ fun WatchScreen(
         }
     }
 
+    LaunchedEffect(isLiveMatch) {
+        if (!isLiveMatch) return@LaunchedEffect
+        while (true) {
+            viewModel.refreshEvents()
+            delay(60_000)
+        }
+    }
+
+    LaunchedEffect(newGoal) {
+        val goal = newGoal ?: return@LaunchedEffect
+        val f = fixture ?: return@LaunchedEffect
+        GoalAlertBus.emit(
+            GoalAlert(
+                fixtureId = f.fixture.id,
+                scorer = goal.player?.name ?: "Goal",
+                team = goal.team.name,
+                minute = goal.time.elapsed ?: 0,
+                score = f.displayScore(),
+                competition = f.league.name
+            )
+        )
+        viewModel.clearGoalCelebration()
+    }
+
     BackHandler {
         viewModel.pause()
         onBack()
@@ -133,10 +162,36 @@ fun WatchScreen(
         onDispose { viewModel.savePlaybackPosition() }
     }
 
+    val scale = (1f - (dismissOffset / 1200f)).coerceIn(0.85f, 1f)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(StadiumBlack)
+            .graphicsLayer {
+                translationY = dismissOffset.coerceAtLeast(0f)
+                scaleX = scale
+                scaleY = scale
+                alpha = (1f - dismissOffset / 900f).coerceIn(0.4f, 1f)
+            }
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        if (dismissOffset > 180f) {
+                            viewModel.pause()
+                            onBack()
+                        } else {
+                            dismissOffset = 0f
+                        }
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        // Rubber-band: resist upward, ease downward
+                        val next = dismissOffset + dragAmount * if (dragAmount > 0) 0.85f else 0.35f
+                        dismissOffset = next.coerceAtLeast(0f)
+                    }
+                )
+            }
     ) {
         Box(
             modifier = Modifier
@@ -187,57 +242,57 @@ fun WatchScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(StadiumBlack.copy(alpha = 0.75f))
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { viewModel.pause(); onBack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
-                        }
-                        fixture?.let { f ->
-                            Text(
-                                text = "${f.teams.home.name} ${f.displayScore()} ${f.teams.away.name}",
-                                color = TextWhite,
-                                style = MaterialTheme.typography.titleSmall,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1
-                            )
-                        }
-                        IconButton(onClick = { viewModel.toggleMute() }) {
-                            Icon(
-                                if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                null,
-                                tint = PitchGreen
-                            )
-                        }
-                        IconButton(onClick = { viewModel.togglePlayPause() }) {
-                            Icon(Icons.Default.PlayArrow, null, tint = PitchGreen)
-                        }
-                        IconButton(onClick = {
-                            activity.requestedOrientation = if (isLandscape) {
-                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            } else {
-                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                            }
-                        }) {
-                            Icon(Icons.Default.Fullscreen, null, tint = PitchGreen)
-                        }
-                    }
-                    Spacer(modifier = Modifier.weight(1f))
-                    if (isLiveMatch) {
-                        Text(
-                            text = stringResource(R.string.live_status),
-                            color = LiveRed,
+                        Row(
                             modifier = Modifier
-                                .align(Alignment.CenterHorizontally)
-                                .padding(bottom = 12.dp)
-                                .background(LiveRed.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 4.dp)
-                        )
-                    }
+                                .fillMaxWidth()
+                                .background(StadiumBlack.copy(alpha = 0.75f))
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { viewModel.pause(); onBack() }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
+                            }
+                            fixture?.let { f ->
+                                Text(
+                                    text = "${f.teams.home.name} ${f.displayScore()} ${f.teams.away.name}",
+                                    color = TextWhite,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1
+                                )
+                            }
+                            IconButton(onClick = { viewModel.toggleMute() }) {
+                                Icon(
+                                    if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                                    null,
+                                    tint = PitchGreen
+                                )
+                            }
+                            IconButton(onClick = { viewModel.togglePlayPause() }) {
+                                Icon(Icons.Default.PlayArrow, null, tint = PitchGreen)
+                            }
+                            IconButton(onClick = {
+                                activity.requestedOrientation = if (isLandscape) {
+                                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                                } else {
+                                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                                }
+                            }) {
+                                Icon(Icons.Default.Fullscreen, null, tint = PitchGreen)
+                            }
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        if (isLiveMatch) {
+                            Text(
+                                text = stringResource(R.string.live_status),
+                                color = LiveRed,
+                                modifier = Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(bottom = 12.dp)
+                                    .background(LiveRed.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -269,6 +324,19 @@ fun WatchScreen(
                     )
                     if (f.isLive()) LiveBadge()
                 }
+
+                MatchTimeline(
+                    currentMinute = f.fixture.status.elapsed ?: 0,
+                    events = events,
+                    onMarkerClick = { minute ->
+                        // Approximate seek for VOD (~1 min ≈ duration/90); live streams ignore seek failures
+                        val duration = viewModel.exoPlayer.duration
+                        if (duration > 0) {
+                            val pos = (duration * (minute / 90f)).toLong()
+                            viewModel.seekTo(pos)
+                        }
+                    }
+                )
             }
 
             if (playbackSources.size > 1) {
