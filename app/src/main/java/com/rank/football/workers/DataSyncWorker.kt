@@ -9,6 +9,7 @@ import androidx.work.WorkerParameters
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.local.CachedStanding
+import com.rank.football.data.local.toCachedStanding
 import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.data.repository.FootballRepository
 import com.rank.football.notifications.NotificationHelper
@@ -58,24 +59,8 @@ class DataSyncWorker(context: Context, params: WorkerParameters) : CoroutineWork
     ) {
         val standings = repo.getStandings(leagueId, LocalDate.now().year) ?: return
         val table = standings.league.standings.firstOrNull().orEmpty()
-        val rows = table.map { row ->
-            CachedStanding(
-                teamId = row.team.id ?: 0,
-                leagueId = leagueId,
-                position = row.rank,
-                teamName = row.team.name,
-                teamLogo = row.team.logo ?: "",
-                played = row.all.played,
-                won = row.all.win,
-                drawn = row.all.draw,
-                lost = row.all.lose,
-                goalsFor = row.goalsDiff.coerceAtLeast(0),
-                goalsAgainst = 0,
-                points = row.points,
-                form = "",
-                lastUpdated = System.currentTimeMillis()
-            )
-        }
+        val now = System.currentTimeMillis()
+        val rows = table.map { it.toCachedStanding(leagueId, now) }
         db.standingsDao().deleteByLeague(leagueId)
         if (rows.isNotEmpty()) db.standingsDao().insertAll(rows)
     }

@@ -139,6 +139,7 @@ class MainActivity : ComponentActivity() {
                     onWatchScreenChanged = { onWatch ->
                         isOnWatchScreen = onWatch
                         appOpenAdManager.setOnWatchScreen(onWatch)
+                        if (!onWatch) interstitialAdManager.markLeftWatch()
                     },
                     onPlayingChanged = { playing -> isPlaying = playing },
                     onAdPlayingChanged = { isAdPlaying = it },

@@ -32,11 +32,12 @@ fun LazyListScope.homeLiveSection(
     liveMatches: Result<List<FixtureItem>>,
     onMatchClick: (Int) -> Unit,
     favoritesRepository: FavoritesRepository?,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    catalogHasStreams: Boolean = true
 ) {
     item {
         SectionTitle(
-            title = stringResource(R.string.section_live_now),
+            title = "ON NOW",
             isLive = true
         )
     }
@@ -50,6 +51,7 @@ fun LazyListScope.homeLiveSection(
                 item {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.LIVE,
+                        catalogHasStreams = catalogHasStreams,
                         compact = true
                     )
                 }
@@ -64,7 +66,6 @@ fun LazyListScope.homeLiveSection(
                                 fixture = fixture,
                                 onClick = { onMatchClick(fixture.fixture.id) },
                                 favoritesRepository = favoritesRepository,
-                                modifier = Modifier.fillParentMaxWidth(0.88f),
                                 compact = true
                             )
                         }
@@ -112,7 +113,8 @@ fun LazyListScope.homeTodaySection(
     todayMatches: Result<List<LeagueGroup>>,
     onMatchClick: (Int) -> Unit,
     favoritesRepository: FavoritesRepository?,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    catalogHasStreams: Boolean = true
 ) {
     item {
         Spacer(modifier = Modifier.height(8.dp))
@@ -128,6 +130,7 @@ fun LazyListScope.homeTodaySection(
                 item {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.FIXTURES,
+                        catalogHasStreams = catalogHasStreams,
                         compact = true
                     )
                 }

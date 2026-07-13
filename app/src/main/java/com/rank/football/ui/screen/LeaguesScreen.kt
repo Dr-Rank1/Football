@@ -117,6 +117,7 @@ fun LeaguesScreen(
                 fixtureTab = fixtureTab,
                 leagueFixtures = leagueFixtures,
                 standingsPreview = standingsPreview,
+                catalogConfigured = catalogConfigured,
                 onBack = viewModel::clearSelection,
                 onStandings = { onStandingsClick(selectedLeague!!.id) },
                 onTabChange = viewModel::setFixtureTab,
@@ -213,6 +214,7 @@ private fun LeaguesOverview(
                 if (filteredLeagues.isEmpty()) {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.LEAGUES,
+                        catalogHasStreams = catalogConfigured,
                         modifier = Modifier
                             .weight(1f)
                             .padding(top = 8.dp),
@@ -335,6 +337,7 @@ private fun LeagueDetailView(
     fixtureTab: LeagueFixtureTab,
     leagueFixtures: Result<List<com.rank.football.data.model.FixtureItem>>,
     standingsPreview: List<LeagueStandingPreview>,
+    catalogConfigured: Boolean,
     onBack: () -> Unit,
     onStandings: () -> Unit,
     onTabChange: (LeagueFixtureTab) -> Unit,
@@ -385,6 +388,7 @@ private fun LeagueDetailView(
                 if (leagueFixtures.data.isEmpty()) {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.LEAGUES,
+                        catalogHasStreams = catalogConfigured,
                         modifier = Modifier
                             .weight(1f)
                             .padding(top = 8.dp),

@@ -99,6 +99,14 @@ fun SettingsScreen(
             SettingsToggle(stringResource(R.string.settings_match_reminders), reminders) {
                 scope.launch { AppPreferences.setMatchReminders(context, it) }
             }
+            val goalAlerts by AppPreferences.goalAlerts(context).collectAsState(initial = true)
+            val favOnly by AppPreferences.favoriteOnlyNotifications(context).collectAsState(initial = true)
+            SettingsToggle(stringResource(R.string.settings_goal_alerts), goalAlerts) {
+                scope.launch { AppPreferences.setGoalAlerts(context, it) }
+            }
+            SettingsToggle(stringResource(R.string.settings_favorite_only), favOnly) {
+                scope.launch { AppPreferences.setFavoriteOnlyNotifications(context, it) }
+            }
 
             SectionHeader(stringResource(R.string.settings_appearance))
             Row(

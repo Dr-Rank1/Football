@@ -11,6 +11,7 @@ import com.rank.football.data.model.isUpcoming
 import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.data.repository.FootballRepository
 import com.rank.football.ui.components.HypeH2H
+import com.rank.football.ui.components.LiveMatchBus
 import com.rank.football.util.Result
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -105,6 +106,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 repository.getLiveFixtures() + repository.getWorldCupFixtures()
             ).distinctBy { it.fixture.id }
             _liveMatches.value = Result.Success(fixtures)
+            LiveMatchBus.publish(fixtures)
         }
     }
 

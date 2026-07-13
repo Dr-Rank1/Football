@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.repository.FootballRepository
+import com.rank.football.ui.components.LiveMatchBus
 import com.rank.football.util.Result
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 app.syncStreamCatalog()
                 val fixtures = streamRepository.filterStreamable(repository.getLiveFixtures())
                 _liveMatches.value = Result.Success(fixtures)
+                LiveMatchBus.publish(fixtures)
             } catch (e: Exception) {
                 _liveMatches.value = Result.Error(e.message ?: "Unknown error")
             }

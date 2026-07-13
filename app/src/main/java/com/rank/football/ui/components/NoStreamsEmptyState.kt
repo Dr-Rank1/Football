@@ -47,21 +47,29 @@ enum class NoStreamsContext {
     HOME, LIVE, FIXTURES, LEAGUES
 }
 
-/** Rich empty state shown when no streamable matches are available. */
+/**
+ * Empty state when nothing is streamable.
+ * [catalogHasStreams] = true → off-season / between matchdays.
+ * [catalogHasStreams] = false → catalog empty or not configured (honest ops message).
+ */
 @Composable
 fun NoStreamsEmptyState(
     context: NoStreamsContext,
     modifier: Modifier = Modifier,
+    catalogHasStreams: Boolean = true,
     compact: Boolean = false,
     onBrowseFixtures: (() -> Unit)? = null,
     onBrowseLeagues: (() -> Unit)? = null,
     onRefresh: (() -> Unit)? = null
 ) {
-    val bodyRes = when (context) {
-        NoStreamsContext.HOME -> R.string.empty_streams_home_body
-        NoStreamsContext.LIVE -> R.string.empty_streams_live_body
-        NoStreamsContext.FIXTURES -> R.string.empty_streams_fixtures_body
-        NoStreamsContext.LEAGUES -> R.string.empty_streams_leagues_body
+    val offSeason = catalogHasStreams
+    val titleRes = if (offSeason) R.string.empty_streams_title else R.string.empty_catalog_title
+    val bodyRes = when {
+        !offSeason -> R.string.empty_catalog_body
+        context == NoStreamsContext.HOME -> R.string.empty_streams_home_body
+        context == NoStreamsContext.LIVE -> R.string.empty_streams_live_body
+        context == NoStreamsContext.FIXTURES -> R.string.empty_streams_fixtures_body
+        else -> R.string.empty_streams_leagues_body
     }
 
     Column(
@@ -88,7 +96,7 @@ fun NoStreamsEmptyState(
         }
 
         Text(
-            text = stringResource(R.string.empty_streams_title),
+            text = stringResource(titleRes),
             style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
             color = TextWhite,
             fontWeight = FontWeight.Bold,
@@ -107,10 +115,10 @@ fun NoStreamsEmptyState(
 
         if (!compact) {
             Spacer(modifier = Modifier.height(16.dp))
-            EmptyStateTips()
+            EmptyStateTips(offSeason = offSeason)
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (onBrowseFixtures != null || onBrowseLeagues != null) {
+            if (offSeason && (onBrowseFixtures != null || onBrowseLeagues != null)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -179,49 +187,40 @@ fun NoStreamsEmptyState(
 
 @Composable
 private fun PitchIllustration() {
-    val line = androidx.compose.ui.graphics.Color(0xFF1A1A28)
-    val pitch = androidx.compose.ui.graphics.Color(0xFF12121C)
+    val line = PitchGreen.copy(alpha = 0.35f)
+    val pitch = CardDark
     Box(
         modifier = Modifier
-            .size(width = 160.dp, height = 100.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .size(width = 168.dp, height = 105.dp)
+            .clip(RoundedCornerShape(8.dp))
             .background(pitch)
-            .border(1.dp, line, RoundedCornerShape(12.dp)),
+            .border(1.dp, line.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(100.dp).padding(8.dp)) {
-            val stroke = 2.5f
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxWidth().height(105.dp).padding(8.dp)) {
+            val stroke = 2f
             val w = size.width
             val h = size.height
-            // Outer pitch
             drawRoundRect(
                 color = line,
                 topLeft = Offset(0f, 0f),
                 size = androidx.compose.ui.geometry.Size(w, h),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(stroke)
             )
-            // Halfway line
             drawLine(line, Offset(w / 2f, 0f), Offset(w / 2f, h), stroke)
-            // Centre circle
             drawCircle(line, radius = h * 0.18f, center = Offset(w / 2f, h / 2f), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
             drawCircle(line, radius = 3f, center = Offset(w / 2f, h / 2f))
-            // Penalty boxes
-            val boxW = w * 0.16f
-            val boxH = h * 0.55f
+            val boxW = w * 0.2f
+            val boxH = h * 0.5f
             drawRect(line, Offset(0f, (h - boxH) / 2f), androidx.compose.ui.geometry.Size(boxW, boxH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
             drawRect(line, Offset(w - boxW, (h - boxH) / 2f), androidx.compose.ui.geometry.Size(boxW, boxH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-            // 6-yard boxes
-            val sixW = w * 0.07f
-            val sixH = h * 0.28f
-            drawRect(line, Offset(0f, (h - sixH) / 2f), androidx.compose.ui.geometry.Size(sixW, sixH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
-            drawRect(line, Offset(w - sixW, (h - sixH) / 2f), androidx.compose.ui.geometry.Size(sixW, sixH), style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
         }
     }
 }
 
 @Composable
-private fun EmptyStateTips() {
+private fun EmptyStateTips(offSeason: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -230,9 +229,15 @@ private fun EmptyStateTips() {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        TipRow(stringResource(R.string.empty_streams_tip_fixtures))
-        TipRow(stringResource(R.string.empty_streams_tip_leagues))
-        TipRow(stringResource(R.string.empty_streams_tip_notify))
+        if (offSeason) {
+            TipRow(stringResource(R.string.empty_streams_tip_fixtures))
+            TipRow(stringResource(R.string.empty_streams_tip_leagues))
+            TipRow(stringResource(R.string.empty_streams_tip_notify))
+        } else {
+            TipRow(stringResource(R.string.empty_catalog_tip_refresh))
+            TipRow(stringResource(R.string.empty_catalog_tip_later))
+            TipRow(stringResource(R.string.empty_catalog_tip_notify))
+        }
     }
 }
 

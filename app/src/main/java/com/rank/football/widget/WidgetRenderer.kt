@@ -74,11 +74,11 @@ object WidgetRenderer {
 
         when (layout) {
 
-            R.layout.widget_compact -> bindCompact(views, filteredLive.firstOrNull())
+            R.layout.widget_compact -> bindCompact(context, views, filteredLive.firstOrNull())
 
             R.layout.widget_scoreboard_large -> bindLarge(context, views, filteredLive, upcoming, prefs.maxMatches)
 
-            else -> bindMedium(views, filteredLive)
+            else -> bindMedium(context, views, filteredLive)
 
         }
 
@@ -153,11 +153,11 @@ object WidgetRenderer {
 
     /** Binds the small 2×2 single-match widget. */
 
-    private fun bindCompact(views: RemoteViews, match: FixtureItem?) {
+    private fun bindCompact(context: Context, views: RemoteViews, match: FixtureItem?) {
 
         if (match == null) {
 
-            views.setTextViewText(R.id.widget_league, "GoalStream")
+            views.setTextViewText(R.id.widget_league, context.getString(R.string.app_name))
 
             views.setTextViewText(R.id.widget_score, "No live matches")
 
@@ -187,9 +187,9 @@ object WidgetRenderer {
 
     /** Binds the medium 4×2 dual-match widget. */
 
-    private fun bindMedium(views: RemoteViews, live: List<FixtureItem>) {
+    private fun bindMedium(context: Context, views: RemoteViews, live: List<FixtureItem>) {
 
-        views.setTextViewText(R.id.widget_title, "⚽ GoalStream")
+        views.setTextViewText(R.id.widget_title, context.getString(R.string.widget_live_header))
 
         views.setTextViewText(R.id.widget_match1, formatRow(live.getOrNull(0)))
 

@@ -1,6 +1,5 @@
 package com.rank.football.ui.components
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,23 +7,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,21 +31,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
-import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
-import coil.imageLoader
-import coil.request.ImageRequest
-import com.rank.football.R
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.isLive
-import com.rank.football.data.model.kickOffTime
-import com.rank.football.ui.theme.LiveRed
+import com.rank.football.ui.theme.BarlowCondensed
 import com.rank.football.ui.theme.PitchGreen
 import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.SurfaceDark
@@ -54,13 +46,15 @@ import com.rank.football.ui.theme.TextWhite
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
+private const val HERO_STADIUM =
+    "https://images.unsplash.com/photo-1569531955323-33c6b2dca44b?w=800&h=560&fit=crop&auto=format"
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HeroBanner(
     fixtures: List<FixtureItem>,
     onWatchClick: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    /** Scroll offset in px — image translates at 0.4× for parallax depth. */
     parallaxOffsetPx: Float = 0f
 ) {
     if (fixtures.isEmpty()) return
@@ -71,25 +65,23 @@ fun HeroBanner(
     LaunchedEffect(pagerState) {
         while (isActive) {
             delay(5000)
-            val next = (pagerState.currentPage + 1) % featured.size
-            pagerState.animateScrollToPage(next)
+            pagerState.animateScrollToPage((pagerState.currentPage + 1) % featured.size)
         }
     }
 
-    Column(modifier = modifier.padding(horizontal = 20.dp)) {
+    Column(modifier = modifier.padding(horizontal = 16.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .graphicsLayer {
-                    translationY = (parallaxOffsetPx * 0.4f).coerceIn(0f, 140f)
-                }
+                .height(228.dp)
+                .clip(RoundedCornerShape(16.dp))
         ) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                Crossfade(targetState = featured[page], label = "hero") { fixture ->
-                    HeroBannerItem(fixture = fixture, onWatchClick = onWatchClick)
-                }
+                HeroSlide(
+                    fixture = featured[page],
+                    onWatchClick = onWatchClick,
+                    parallaxOffsetPx = parallaxOffsetPx
+                )
             }
         }
         Row(
@@ -101,8 +93,8 @@ fun HeroBanner(
             repeat(featured.size) { index ->
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                        .padding(horizontal = 3.dp)
+                        .size(if (pagerState.currentPage == index) 7.dp else 5.dp)
                         .clip(CircleShape)
                         .background(
                             if (pagerState.currentPage == index) PitchGreen else SurfaceDark
@@ -114,100 +106,130 @@ fun HeroBanner(
 }
 
 @Composable
-private fun HeroBannerItem(
+private fun HeroSlide(
     fixture: FixtureItem,
-    onWatchClick: (Int) -> Unit
+    onWatchClick: (Int) -> Unit,
+    parallaxOffsetPx: Float
 ) {
-    val context = LocalContext.current
-    var gradientStart by remember(fixture.fixture.id) { mutableStateOf(SurfaceDark) }
-
-    LaunchedEffect(fixture.teams.home.logo) {
-        try {
-            val request = ImageRequest.Builder(context)
-                .data(fixture.teams.home.logo)
-                .allowHardware(false)
-                .build()
-            val result = context.imageLoader.execute(request)
-            val bitmap = result.drawable?.toBitmap()
-            if (bitmap != null) {
-                val palette = Palette.from(bitmap).generate()
-                val swatch = palette.vibrantSwatch ?: palette.dominantSwatch
-                if (swatch != null) {
-                    gradientStart = Color(swatch.rgb).copy(alpha = 0.6f)
-                }
-            }
-        } catch (_: Exception) {
-        }
-    }
+    val homeGoals = fixture.goals.home ?: 0
+    val awayGoals = fixture.goals.away ?: 0
+    val live = fixture.isLive()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .clickable { onWatchClick(fixture.fixture.id) }
     ) {
-        Box(
+        AsyncImage(
+            model = HERO_STADIUM,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationY = (parallaxOffsetPx * 0.35f).coerceIn(0f, 52f)
+                    scaleX = 1.08f
+                    scaleY = 1.08f
+                }
+        )
+        Box(
+            Modifier
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(gradientStart, StadiumBlack)
+                        listOf(
+                            Color.Black.copy(alpha = 0.15f),
+                            Color.Black.copy(alpha = 0.35f),
+                            Color.Black.copy(alpha = 0.92f)
+                        )
                     )
                 )
         )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+                .align(Alignment.TopStart),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            CompChip(name = fixture.league.name, leagueId = fixture.league.id)
+            if (live) {
+                LiveBadge(minute = fixture.fixture.status.elapsed, large = true)
+            }
+        }
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(14.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(
-                    model = fixture.league.logo,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    contentScale = ContentScale.Fit
-                )
-                Text(
-                    text = fixture.league.name,
-                    color = TextWhite,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-            }
-            Text(
-                text = "${fixture.teams.home.name}  vs  ${fixture.teams.away.name}",
-                color = TextWhite,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                HeroTeam(fixture.teams.home.name, fixture.teams.home.logo, Alignment.Start)
+                Text(
+                    text = if (live || fixture.goals.home != null) {
+                        "$homeGoals  –  $awayGoals"
+                    } else {
+                        "VS"
+                    },
+                    color = TextWhite,
+                    fontFamily = BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = if (live || fixture.goals.home != null) 40.sp else 28.sp,
+                    letterSpacing = (-1).sp,
+                    modifier = Modifier.padding(bottom = 18.dp)
+                )
+                HeroTeam(fixture.teams.away.name, fixture.teams.away.logo, Alignment.End)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PitchGreen)
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (fixture.isLive()) {
-                    Text(
-                        text = stringResource(R.string.live_minute, fixture.fixture.status.elapsed ?: 0),
-                        color = LiveRed,
-                        fontWeight = FontWeight.Bold
-                    )
-                } else {
-                    Text(
-                        text = fixture.kickOffTime(),
-                        color = TextWhite
-                    )
-                }
+                Icon(Icons.Default.PlayArrow, null, tint = StadiumBlack, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
-                    text = stringResource(R.string.hero_watch),
+                    text = if (live) "WATCH LIVE" else "WATCH",
                     color = StadiumBlack,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(PitchGreen)
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                    fontFamily = BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    letterSpacing = 2.sp
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HeroTeam(name: String, logo: String?, align: Alignment.Horizontal) {
+    Column(horizontalAlignment = align) {
+        AsyncImage(
+            model = logo,
+            contentDescription = name,
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(TextWhite.copy(alpha = 0.12f)),
+            contentScale = ContentScale.Fit
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = name,
+            color = TextWhite,
+            fontFamily = BarlowCondensed,
+            fontWeight = FontWeight.Black,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

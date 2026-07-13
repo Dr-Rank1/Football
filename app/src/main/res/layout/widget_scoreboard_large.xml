@@ -16,7 +16,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="⚽ GoalStream Live"
+            android:text="@string/widget_live_header"
             android:textColor="@android:color/white"
             android:textStyle="bold" />
 

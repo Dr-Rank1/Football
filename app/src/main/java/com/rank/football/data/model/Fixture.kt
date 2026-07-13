@@ -117,6 +117,7 @@ data class StandingEntry(
     val team: TeamInfo,
     val points: Int,
     val goalsDiff: Int,
+    val form: String? = null,
     val all: StandingStats
 )
 
@@ -124,7 +125,13 @@ data class StandingStats(
     val played: Int,
     val win: Int,
     val draw: Int,
-    val lose: Int
+    val lose: Int,
+    val goals: StandingGoals? = null
+)
+
+data class StandingGoals(
+    val `for`: Int = 0,
+    val against: Int = 0
 )
 
 fun FixtureItem.isLive(): Boolean {

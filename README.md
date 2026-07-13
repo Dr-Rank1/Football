@@ -1,6 +1,6 @@
 ﻿# Football
 
-**Rank Football** — a free Android app for browsing and watching streamable football matches. Built with Kotlin, Jetpack Compose, Media3 ExoPlayer, and API-Football.
+**Watch Football Online Free** — a free Android app for browsing and watching streamable football matches. Built with Kotlin, Jetpack Compose, Media3 ExoPlayer, and API-Football.
 
 Live scores, fixtures, leagues, and streams in one place. Only matches with configured stream URLs appear in the app.
 
