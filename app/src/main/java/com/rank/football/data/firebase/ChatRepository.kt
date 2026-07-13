@@ -89,4 +89,21 @@ class ChatRepository(private val context: Context) {
         ref.addValueEventListener(listener)
         awaitClose { ref.removeEventListener(listener) }
     }
+
+    /** Registers this device as an active watcher (presence + onDisconnect cleanup). */
+    suspend fun joinWatchers(fixtureId: Int) {
+        ensureAuth()
+        val uid = auth.currentUser?.uid ?: return
+        val ref = database.child("chats").child(fixtureId.toString()).child("watchers").child(uid)
+        ref.setValue(true).await()
+        ref.onDisconnect().removeValue()
+    }
+
+    /** Removes this device from the active watchers list. */
+    suspend fun leaveWatchers(fixtureId: Int) {
+        val uid = auth.currentUser?.uid ?: return
+        database.child("chats").child(fixtureId.toString()).child("watchers").child(uid)
+            .removeValue()
+            .await()
+    }
 }

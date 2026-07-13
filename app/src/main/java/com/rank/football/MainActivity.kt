@@ -11,33 +11,19 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,20 +36,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.ui.components.GoalToastHost
 import com.rank.football.ui.components.LiveGoalMonitor
 import com.rank.football.ui.components.LiveMatchBus
 import com.rank.football.ui.components.MiniPipPlayer
-import com.rank.football.ui.theme.TextWhite
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -82,6 +63,8 @@ import com.rank.football.data.local.OnboardingPreference
 import com.rank.football.pip.PipHelper
 import com.rank.football.review.InAppReviewManager
 import com.rank.football.ui.components.NetworkBanner
+import com.rank.football.ui.components.StreamBottomBar
+import com.rank.football.ui.components.StreamNavItem
 import com.rank.football.ui.privacy.ConsentScreen
 import com.rank.football.ui.screen.FixturesScreen
 import com.rank.football.ui.screen.HomeScreen
@@ -99,11 +82,7 @@ import com.rank.football.ui.tv.TvWatchScreen
 import com.rank.football.BuildConfig
 import com.rank.football.monetization.RewardedInterstitialManager
 import com.rank.football.ui.theme.GoalStreamTheme
-import com.rank.football.ui.theme.LiveRed
-import com.rank.football.ui.theme.PitchGreen
 import com.rank.football.ui.theme.StadiumBlack
-import com.rank.football.ui.theme.SurfaceDark
-import com.rank.football.ui.theme.TextGrey
 import com.rank.football.update.InAppUpdateManager
 import com.rank.football.util.NetworkMonitor
 import com.rank.football.util.ReminderHelper
@@ -237,20 +216,12 @@ private fun GoalStreamRoot(
 private sealed class BottomNavItem(
     val route: String,
     val labelRes: Int,
-    val icon: @Composable () -> Unit
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
 ) {
-    data object Home : BottomNavItem("home", R.string.nav_home, {
-        Icon(Icons.Default.Home, contentDescription = null)
-    })
-    data object Live : BottomNavItem("live", R.string.nav_live, {
-        Icon(Icons.Default.Sensors, contentDescription = null)
-    })
-    data object Fixtures : BottomNavItem("fixtures", R.string.nav_fixtures, {
-        Icon(Icons.Default.CalendarMonth, contentDescription = null)
-    })
-    data object Leagues : BottomNavItem("leagues", R.string.nav_leagues, {
-        Icon(Icons.Default.EmojiEvents, contentDescription = null)
-    })
+    data object Home : BottomNavItem("home", R.string.nav_home, Icons.Default.Home)
+    data object Live : BottomNavItem("live", R.string.nav_live, Icons.Default.Sensors)
+    data object Fixtures : BottomNavItem("fixtures", R.string.nav_fixtures, Icons.Default.CalendarMonth)
+    data object Leagues : BottomNavItem("leagues", R.string.nav_leagues, Icons.Default.EmojiEvents)
 }
 
 @Composable
@@ -348,43 +319,24 @@ private fun GoalStreamNav(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
                 if (showBottomBar) {
-                    NavigationBar(
-                        containerColor = StadiumBlack,
-                        contentColor = TextGrey,
-                        tonalElevation = 0.dp
-                    ) {
-                        bottomItems.forEach { item ->
-                            val selected = currentRoute == item.route
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = {
-                                    navController.navigate(item.route) {
-                                        popUpTo("home") { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                icon = {
-                                    LiveNavIcon(
-                                        selected = selected,
-                                        liveCount = if (item == BottomNavItem.Live) liveMatchCount else -1,
-                                        content = { item.icon() }
-                                    )
-                                },
-                                label = { Text(stringResource(item.labelRes)) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = PitchGreen,
-                                    selectedTextColor = PitchGreen,
-                                    unselectedIconColor = if (item == BottomNavItem.Live && liveMatchCount == 0) {
-                                        TextGrey.copy(alpha = 0.45f)
-                                    } else {
-                                        TextGrey
-                                    },
-                                    indicatorColor = SurfaceDark
-                                )
+                    StreamBottomBar(
+                        items = bottomItems.map { item ->
+                            StreamNavItem(
+                                route = item.route,
+                                label = stringResource(item.labelRes),
+                                icon = item.icon,
+                                liveCount = if (item == BottomNavItem.Live) liveMatchCount else -1
                             )
+                        },
+                        selectedRoute = currentRoute,
+                        onSelect = { route ->
+                            navController.navigate(route) {
+                                popUpTo("home") { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
-                    }
+                    )
                 }
             }
         ) { padding ->
@@ -524,56 +476,3 @@ private fun GoalStreamNav(
     }
 }
 
-@Composable
-private fun LiveNavIcon(
-    selected: Boolean,
-    liveCount: Int,
-    content: @Composable () -> Unit
-) {
-    if (liveCount < 0) {
-        content()
-        return
-    }
-    val pulse = rememberInfiniteTransition(label = "live_nav")
-    val scale by pulse.animateFloat(
-        initialValue = 1f,
-        targetValue = if (liveCount >= 5) 1.12f else 1f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-        label = "live_scale"
-    )
-    Box {
-        Box(
-            modifier = Modifier.graphicsLayer {
-                alpha = if (liveCount == 0) 0.45f else 1f
-                scaleX = if (liveCount >= 5) scale else 1f
-                scaleY = if (liveCount >= 5) scale else 1f
-            }
-        ) {
-            content()
-        }
-        when {
-            liveCount >= 5 -> {
-                Text(
-                    text = if (liveCount > 9) "9+" else "$liveCount",
-                    color = TextWhite,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .graphicsLayer { scaleX = scale; scaleY = scale }
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(LiveRed)
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                )
-            }
-            liveCount > 0 -> {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(8.dp)
-                        .background(LiveRed, CircleShape)
-                )
-            }
-        }
-    }
-}

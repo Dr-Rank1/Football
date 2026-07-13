@@ -1,5 +1,6 @@
 package com.rank.football.ui.screen
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,20 +20,24 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rank.football.R
 import com.rank.football.ads.AdConstants
 import com.rank.football.data.local.AppDatabase
+import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.repository.StreamCatalogStatus
 import com.rank.football.ui.components.AppScreenHeader
 import com.rank.football.ui.components.BannerAdView
 import com.rank.football.ui.components.ErrorState
+import com.rank.football.ui.components.LeagueHeader
 import com.rank.football.ui.components.LoadingShimmerList
 import com.rank.football.ui.components.MatchCard
 import com.rank.football.ui.components.NoStreamsContext
 import com.rank.football.ui.components.NoStreamsEmptyState
+import com.rank.football.ui.components.SectionTitle
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.LiveViewModel
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LiveScreen(
     onMatchClick: (Int) -> Unit,
@@ -49,6 +54,7 @@ fun LiveScreen(
     val app = context.applicationContext as GoalStreamApp
     val catalogStatus by app.streamRepository.catalogStatus.collectAsState()
     val catalogHasStreams = catalogStatus == StreamCatalogStatus.READY
+    val catalogPending = catalogStatus == StreamCatalogStatus.PENDING
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -65,10 +71,15 @@ fun LiveScreen(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    val liveSubtitle = when (val result = liveMatches) {
+        is Result.Success -> "${result.data.size} ${stringResource(R.string.live_subtitle)}"
+        else -> null
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
         AppScreenHeader(
             title = stringResource(R.string.live_title),
-            subtitle = null
+            subtitle = liveSubtitle
         )
 
         when (val result = liveMatches) {
@@ -84,6 +95,9 @@ fun LiveScreen(
             }
             is Result.Success -> {
                 if (result.data.isEmpty()) {
+                    if (catalogPending) {
+                        LoadingShimmerList(modifier = Modifier.weight(1f))
+                    } else {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.LIVE,
                         catalogHasStreams = catalogHasStreams,
@@ -94,17 +108,46 @@ fun LiveScreen(
                         onBrowseLeagues = onBrowseLeagues,
                         onRefresh = { viewModel.loadLiveMatches() }
                     )
+                    }
                 } else {
+                    val featured = result.data.first()
+                    val grouped = remember(result.data) {
+                        groupLiveMatchesByLeague(result.data.drop(1))
+                    }
                     LazyColumn(
                         modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                        contentPadding = PaddingValues(bottom = 8.dp)
                     ) {
-                        items(result.data, key = { it.fixture.id }) { fixture ->
-                            MatchCard(
-                                fixture = fixture,
-                                onClick = { onMatchClick(fixture.fixture.id) },
-                                favoritesRepository = favoritesRepository
-                            )
+                        item(key = "featured_${featured.fixture.id}") {
+                            Column(modifier = Modifier.padding(bottom = 4.dp)) {
+                                SectionTitle(title = "FEATURED", isLive = true)
+                                MatchCard(
+                                    fixture = featured,
+                                    onClick = { onMatchClick(featured.fixture.id) },
+                                    favoritesRepository = favoritesRepository,
+                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                )
+                            }
+                        }
+                        grouped.forEach { group ->
+                            stickyHeader(key = "header_${group.leagueId}") {
+                                if (group.leagueLogo != null) {
+                                    LeagueHeader(
+                                        leagueName = group.leagueName,
+                                        leagueLogo = group.leagueLogo,
+                                        country = group.country
+                                    )
+                                } else {
+                                    SectionTitle(title = group.leagueName, isLive = true)
+                                }
+                            }
+                            items(group.fixtures, key = { it.fixture.id }) { fixture ->
+                                MatchCard(
+                                    fixture = fixture,
+                                    onClick = { onMatchClick(fixture.fixture.id) },
+                                    favoritesRepository = favoritesRepository
+                                )
+                            }
                         }
                     }
                 }
@@ -114,3 +157,26 @@ fun LiveScreen(
         BannerAdView(adUnitId = AdConstants.BANNER_TEST_UNIT_ID)
     }
 }
+
+private data class LiveLeagueGroup(
+    val leagueId: Int,
+    val leagueName: String,
+    val leagueLogo: String?,
+    val country: String?,
+    val fixtures: List<FixtureItem>
+)
+
+private fun groupLiveMatchesByLeague(matches: List<FixtureItem>): List<LiveLeagueGroup> =
+    matches
+        .groupBy { it.league.id }
+        .map { (_, fixtures) ->
+            val league = fixtures.first().league
+            LiveLeagueGroup(
+                leagueId = league.id,
+                leagueName = league.name,
+                leagueLogo = league.logo,
+                country = league.country,
+                fixtures = fixtures
+            )
+        }
+        .sortedBy { it.leagueName }

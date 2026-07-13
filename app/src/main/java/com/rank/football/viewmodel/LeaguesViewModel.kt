@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rank.football.GoalStreamApp
+import com.rank.football.data.local.OnboardingPreference
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.isLive
 import com.rank.football.data.model.isUpcoming
@@ -15,6 +16,7 @@ import com.rank.football.util.Result
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -117,6 +119,8 @@ class LeaguesViewModel(application: Application) : AndroidViewModel(application)
                     .groupBy { it.league.id }
 
                 allStreamableByLeague = grouped
+                val preferred = OnboardingPreference.preferredLeagueIds(getApplication())
+                    .first()
                 val overview = grouped.map { (leagueId, fixtures) ->
                     val sample = fixtures.first()
                     val season = sample.league.season ?: today.year
@@ -133,6 +137,7 @@ class LeaguesViewModel(application: Application) : AndroidViewModel(application)
                     )
                 }.sortedWith(
                     compareByDescending<StreamableLeague> { it.id == WORLD_CUP_LEAGUE_ID }
+                        .thenByDescending { preferred.contains(it.id) }
                         .thenByDescending { it.liveCount }
                         .thenByDescending { it.todayCount }
                         .thenBy { it.name }

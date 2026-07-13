@@ -22,6 +22,11 @@
     <string name="search_tab_leagues">Leagues</string>
     <string name="search_tab_matches">Matches</string>
     <string name="hero_watch">▶ WATCH</string>
+    <string name="hero_cta_live">WATCH LIVE</string>
+    <string name="hero_cta_watch">WATCH NOW</string>
+    <string name="hero_live_line">Live now — %1$s vs %2$s</string>
+    <string name="hero_watch_line">Up next — %1$s vs %2$s</string>
+    <string name="hero_empty_support">Streams appear here when matchday kicks off.</string>
 
     <!-- Live -->
     <string name="live_empty">No live matches right now. Check Fixtures for upcoming.</string>
@@ -110,6 +115,7 @@
 
     <!-- Errors -->
     <string name="error_no_connection">No connection. Tap to retry.</string>
+    <string name="error_title">Something went wrong</string>
     <string name="no_internet">You\'re offline — showing last cached fixtures &amp; standings</string>
     <string name="chat_empty">Be the first to chat about this match.</string>
     <string name="chat_send_failed">Couldn\'t send message</string>
