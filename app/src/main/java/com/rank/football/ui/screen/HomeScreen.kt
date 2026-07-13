@@ -1,9 +1,14 @@
 package com.rank.football.ui.screen
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -17,11 +22,15 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rank.football.GoalStreamApp
 import com.rank.football.R
 import com.rank.football.ads.AdConstants
+import com.rank.football.data.repository.StreamCatalogStatus
 import com.rank.football.ui.components.AppScreenHeader
 import com.rank.football.ui.components.BannerAdView
 import com.rank.football.ui.components.FavouritesStrip
@@ -29,6 +38,7 @@ import com.rank.football.ui.components.HeroBanner
 import com.rank.football.ui.components.NoStreamsContext
 import com.rank.football.ui.components.NoStreamsEmptyState
 import com.rank.football.ui.components.PreMatchHypeCard
+import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.HomeViewModel
@@ -54,6 +64,9 @@ fun HomeScreen(
     val hypeH2H by viewModel.hypeH2H.collectAsState()
     val hypeHomeForm by viewModel.hypeHomeForm.collectAsState()
     val hypeAwayForm by viewModel.hypeAwayForm.collectAsState()
+    val app = LocalContext.current.applicationContext as GoalStreamApp
+    val catalogStatus by app.streamRepository.catalogStatus.collectAsState()
+    val catalogHasStreams = catalogStatus == StreamCatalogStatus.READY
 
     val listState = rememberLazyListState()
     val parallaxOffset by remember {
@@ -101,13 +114,28 @@ fun HomeScreen(
     ) {
         AppScreenHeader(
             title = stringResource(R.string.home_title),
-            subtitle = stringResource(R.string.home_subtitle),
+            subtitle = null,
             trailing = {
-                IconButton(onClick = onSearchClick) {
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), tint = TextWhite)
+                IconButton(
+                    onClick = onSearchClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(TextWhite.copy(alpha = 0.05f))
+                        .border(1.dp, TextWhite.copy(alpha = 0.06f), androidx.compose.foundation.shape.CircleShape)
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), tint = TextGrey, modifier = Modifier.size(16.dp))
                 }
-                IconButton(onClick = onSettingsClick) {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title), tint = TextWhite)
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onSettingsClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(TextWhite.copy(alpha = 0.05f))
+                        .border(1.dp, TextWhite.copy(alpha = 0.06f), androidx.compose.foundation.shape.CircleShape)
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title), tint = TextGrey, modifier = Modifier.size(16.dp))
                 }
             }
         )
@@ -123,6 +151,7 @@ fun HomeScreen(
         if (fullyEmpty && liveMatches !is Result.Loading && todayMatches !is Result.Loading) {
             NoStreamsEmptyState(
                 context = NoStreamsContext.HOME,
+                catalogHasStreams = catalogHasStreams,
                 modifier = Modifier
                     .weight(1f)
                     .padding(top = 8.dp),
@@ -161,7 +190,8 @@ fun HomeScreen(
                     liveMatches = filteredLive,
                     onMatchClick = onMatchClick,
                     favoritesRepository = viewModel.favoritesRepository,
-                    onRetry = { viewModel.loadData() }
+                    onRetry = { viewModel.loadData() },
+                    catalogHasStreams = catalogHasStreams
                 )
 
                 homeFavoritesSection(
@@ -175,7 +205,8 @@ fun HomeScreen(
                     todayMatches = filteredToday,
                     onMatchClick = onMatchClick,
                     favoritesRepository = viewModel.favoritesRepository,
-                    onRetry = { viewModel.loadData() }
+                    onRetry = { viewModel.loadData() },
+                    catalogHasStreams = catalogHasStreams
                 )
             }
         }

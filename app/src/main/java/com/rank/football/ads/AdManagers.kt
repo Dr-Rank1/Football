@@ -15,7 +15,13 @@ class InterstitialAdManager(private val context: Context) {
 
     private var interstitialAd: InterstitialAd? = null
     private var lastShownTimestamp = 0L
+    private var lastWatchExitTimestamp = 0L
     private var pendingNavigation: (() -> Unit)? = null
+
+    /** Call when the user leaves the Watch screen so the next open skips an interstitial. */
+    fun markLeftWatch() {
+        lastWatchExitTimestamp = System.currentTimeMillis()
+    }
 
     fun loadAd() {
         InterstitialAd.load(
@@ -34,9 +40,14 @@ class InterstitialAdManager(private val context: Context) {
         )
     }
 
+    /**
+     * Shows an interstitial before [onNavigate], unless cooldown / watch-grace applies.
+     * Prefer not interrupting the watch path right after someone was already watching.
+     */
     fun showBeforeNavigation(activity: Activity, onNavigate: () -> Unit) {
         val now = System.currentTimeMillis()
-        val canShow = now - lastShownTimestamp >= AdConstants.INTERSTITIAL_COOLDOWN_MS
+        val inWatchGrace = now - lastWatchExitTimestamp < AdConstants.WATCH_AD_GRACE_MS
+        val canShow = !inWatchGrace && now - lastShownTimestamp >= AdConstants.INTERSTITIAL_COOLDOWN_MS
         val ad = interstitialAd
 
         if (!canShow || ad == null) {

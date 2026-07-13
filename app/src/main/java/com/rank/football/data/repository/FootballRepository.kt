@@ -1,7 +1,11 @@
 package com.rank.football.data.repository
 
 import android.content.Context
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.rank.football.data.api.RetrofitClient
+import com.rank.football.data.local.AppDatabase
+import com.rank.football.data.local.CachedFixtureSnapshot
 import com.rank.football.data.model.FixtureEventItem
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.FixtureStatisticsItem
@@ -13,6 +17,7 @@ import com.rank.football.data.model.InjuryItem
 import com.rank.football.data.model.TransferItem
 import com.rank.football.data.model.TeamStatisticsItem
 import com.rank.football.data.model.TeamSearchItem
+import com.rank.football.util.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
@@ -25,14 +30,16 @@ class FootballRepository(context: Context) {
 
     private val appContext = context.applicationContext
     private val api get() = RetrofitClient.getApiService(appContext)
+    private val snapshotDao = AppDatabase.getInstance(appContext).fixtureSnapshotDao()
+    private val gson = Gson()
 
     suspend fun getLiveFixtures(): List<FixtureItem> = withContext(Dispatchers.IO) {
-        runCatching { api.getLiveFixtures().response }.getOrDefault(emptyList())
+        fetchFixtures("live") { api.getLiveFixtures().response }
     }
 
     suspend fun getFixturesByDate(date: LocalDate): List<FixtureItem> = withContext(Dispatchers.IO) {
         val formatted = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        runCatching { api.getFixturesByDate(formatted).response }.getOrDefault(emptyList())
+        fetchFixtures("date_$formatted") { api.getFixturesByDate(formatted).response }
     }
 
     suspend fun getTodayFixtures(): List<FixtureItem> = getFixturesByDate(LocalDate.now())
@@ -146,4 +153,37 @@ class FootballRepository(context: Context) {
                 api.getTeamStatistics(teamId, season, leagueId).response.firstOrNull()
             }.getOrNull()
         }
+
+    /** Fetches fixtures from the network and caches them; falls back to Room when offline. */
+    private suspend fun fetchFixtures(
+        cacheKey: String,
+        block: suspend () -> List<FixtureItem>
+    ): List<FixtureItem> {
+        val online = NetworkMonitor.isOnline(appContext)
+        val result = runCatching { block() }
+        if (result.isSuccess) {
+            val list = result.getOrDefault(emptyList())
+            if (list.isNotEmpty() || online) {
+                snapshotDao.upsert(
+                    CachedFixtureSnapshot(
+                        cacheKey = cacheKey,
+                        payloadJson = gson.toJson(list),
+                        cachedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+            if (list.isNotEmpty() || online) return list
+        }
+        return readSnapshot(cacheKey)
+    }
+
+    private suspend fun readSnapshot(cacheKey: String): List<FixtureItem> {
+        val row = snapshotDao.get(cacheKey) ?: return emptyList()
+        return runCatching {
+            gson.fromJson<List<FixtureItem>>(
+                row.payloadJson,
+                object : TypeToken<List<FixtureItem>>() {}.type
+            ) ?: emptyList()
+        }.getOrDefault(emptyList())
+    }
 }

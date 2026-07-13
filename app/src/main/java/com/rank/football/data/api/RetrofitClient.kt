@@ -50,12 +50,21 @@ object RetrofitClient {
             val cacheControl = if (online) {
                 CacheControl.Builder().maxAge(60, TimeUnit.SECONDS).build()
             } else {
-                CacheControl.Builder().onlyIfCached().maxStale(3600, TimeUnit.SECONDS).build()
+                CacheControl.Builder().onlyIfCached().maxStale(7, TimeUnit.DAYS).build()
             }
             val request = chain.request().newBuilder()
                 .cacheControl(cacheControl)
                 .build()
-            chain.proceed(request)
+            val response = chain.proceed(request)
+            // Ensure successful API responses are stored for offline reuse.
+            if (online && response.isSuccessful) {
+                response.newBuilder()
+                    .header("Cache-Control", "public, max-age=60")
+                    .removeHeader("Pragma")
+                    .build()
+            } else {
+                response
+            }
         }
 
         val offlineInterceptor = Interceptor { chain ->
@@ -63,7 +72,7 @@ object RetrofitClient {
             if (!NetworkMonitor.isOnline(context)) {
                 request = request.newBuilder()
                     .cacheControl(
-                        CacheControl.Builder().onlyIfCached().maxStale(3600, TimeUnit.SECONDS).build()
+                        CacheControl.Builder().onlyIfCached().maxStale(7, TimeUnit.DAYS).build()
                     )
                     .build()
             }

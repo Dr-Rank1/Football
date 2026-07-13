@@ -344,6 +344,9 @@ class PlayerViewModel(
         }
     }
 
+    /** URL of the stream currently selected for local / Cast playback. */
+    fun currentStreamUrl(): String? = _playbackSources.value.getOrNull(currentSourceIndex)?.url
+
     fun unlockHd() {
         _hdUnlocked.value = true
         _selectedStream.value?.let { selectStream(it) }

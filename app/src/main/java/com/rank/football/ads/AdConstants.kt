@@ -7,4 +7,6 @@ object AdConstants {
     const val INTERSTITIAL_TEST_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     const val REWARDED_TEST_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
     const val INTERSTITIAL_COOLDOWN_MS = 5 * 60 * 1000L
+    /** Skip interstitials for this long after leaving Watch. */
+    const val WATCH_AD_GRACE_MS = 3 * 60 * 1000L
 }

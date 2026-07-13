@@ -23,9 +23,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         FantasyRosterEntry::class,
         GoalClipEntry::class,
         MatchStory::class,
-        ArticleCache::class
+        ArticleCache::class,
+        CachedFixtureSnapshot::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -41,6 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun goalClipDao(): GoalClipDao
     abstract fun matchStoryDao(): MatchStoryDao
     abstract fun articleCacheDao(): ArticleCacheDao
+    abstract fun fixtureSnapshotDao(): FixtureSnapshotDao
 
     companion object {
         @Volatile
@@ -217,7 +219,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /** Returns the singleton Room database with migrations through v4. */
+        
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS fixture_snapshots (
+                        cacheKey TEXT PRIMARY KEY NOT NULL,
+                        payloadJson TEXT NOT NULL,
+                        cachedAt INTEGER NOT NULL
+                    )"""
+                )
+            }
+        }
+        /** Returns the singleton Room database with migrations through v5. */
         fun getInstance(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -225,7 +239,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "goalstream.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                     .also { instance = it }
             }

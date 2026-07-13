@@ -7,10 +7,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ConcurrentHashMap
 
+/** Whether the remote stream catalog has been synced and contains entries. */
+enum class StreamCatalogStatus {
+    /** Sync has not finished yet. */
+    PENDING,
+    /** Sync finished but no fixture streams are configured. */
+    EMPTY,
+    /** At least one fixture has a stream URL. */
+    READY
+}
+
 /** Maintains per-fixture stream URLs injected from remote config or admin API. */
 class StreamRepository {
 
     private val fixtureStreams = ConcurrentHashMap<Int, List<StreamSource>>()
+    private val _catalogStatus = MutableStateFlow(StreamCatalogStatus.PENDING)
+    val catalogStatus: StateFlow<StreamCatalogStatus> = _catalogStatus.asStateFlow()
+
+    /** True when at least one fixture currently has streams. */
     private val _catalogLoaded = MutableStateFlow(false)
     val catalogLoaded: StateFlow<Boolean> = _catalogLoaded.asStateFlow()
 
@@ -31,12 +45,17 @@ class StreamRepository {
     /** Stores stream sources for a single fixture. */
     fun setStreamsForFixture(fixtureId: Int, streams: List<StreamSource>) {
         if (streams.isEmpty()) fixtureStreams.remove(fixtureId) else fixtureStreams[fixtureId] = streams
-        _catalogLoaded.value = fixtureStreams.isNotEmpty()
+        if (_catalogStatus.value != StreamCatalogStatus.PENDING) {
+            applyStatus(fixtureStreams.isNotEmpty())
+        }
     }
 
     /** Bulk-updates stream mappings from remote configuration. */
     fun updateStreamsFromRemote(config: Map<Int, List<StreamSource>>) {
-        config.forEach { (fixtureId, streams) -> setStreamsForFixture(fixtureId, streams) }
+        config.forEach { (fixtureId, streams) ->
+            if (streams.isEmpty()) fixtureStreams.remove(fixtureId) else fixtureStreams[fixtureId] = streams
+        }
+        markSynced(fixtureStreams.isNotEmpty())
     }
 
     /** Replaces the entire catalog with a fresh remote snapshot. */
@@ -45,9 +64,19 @@ class StreamRepository {
         config.forEach { (fixtureId, streams) ->
             if (streams.isNotEmpty()) fixtureStreams[fixtureId] = streams
         }
-        _catalogLoaded.value = fixtureStreams.isNotEmpty()
+        markSynced(fixtureStreams.isNotEmpty())
+    }
+
+    /** Records that a catalog sync finished, with or without entries. */
+    fun markSynced(hasEntries: Boolean) {
+        applyStatus(hasEntries)
     }
 
     /** Returns the number of fixtures with configured streams. */
     fun streamCount(): Int = fixtureStreams.size
+
+    private fun applyStatus(hasEntries: Boolean) {
+        _catalogStatus.value = if (hasEntries) StreamCatalogStatus.READY else StreamCatalogStatus.EMPTY
+        _catalogLoaded.value = hasEntries
+    }
 }

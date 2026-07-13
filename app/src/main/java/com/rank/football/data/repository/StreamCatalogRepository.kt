@@ -25,7 +25,10 @@ class StreamCatalogRepository {
         loadFromFirebase()?.let { firebase ->
             firebase.forEach { (id, sources) -> merged[id] = sources }
         }
-        if (merged.isEmpty()) return@withContext false
+        if (merged.isEmpty()) {
+            streamRepository.markSynced(false)
+            return@withContext false
+        }
         streamRepository.replaceAll(merged)
         true
     }

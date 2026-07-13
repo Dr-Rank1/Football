@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -26,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import com.rank.football.R
 import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.local.CachedStanding
+import com.rank.football.data.local.toCachedStanding
+import com.rank.football.data.repository.FootballRepository
 import com.rank.football.ui.components.DetailBackHeader
 import com.rank.football.ui.components.GoalsSparkline
 import com.rank.football.ui.theme.CardDark
@@ -36,13 +39,28 @@ import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.SurfaceDark
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
+import java.time.LocalDate
 
-/** League standings table with position color coding. */
+/** League standings table with real form + GF/GA and position color coding. */
 @Composable
 fun StandingsScreen(leagueId: Int, onBack: () -> Unit) {
     val context = LocalContext.current
     val dao = remember { AppDatabase.getInstance(context).standingsDao() }
+    val repo = remember { FootballRepository(context) }
     val rows by dao.byLeague(leagueId).collectAsState(initial = emptyList())
+
+    LaunchedEffect(leagueId) {
+        val year = LocalDate.now().year
+        val standings = repo.getStandings(leagueId, year)
+            ?: repo.getStandings(leagueId, year - 1)
+            ?: return@LaunchedEffect
+        val table = standings.league.standings.firstOrNull().orEmpty()
+        if (table.isEmpty()) return@LaunchedEffect
+        val now = System.currentTimeMillis()
+        val mapped = table.map { it.toCachedStanding(leagueId, now) }
+        dao.deleteByLeague(leagueId)
+        dao.insertAll(mapped)
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -70,7 +88,7 @@ fun StandingsScreen(leagueId: Int, onBack: () -> Unit) {
                 )
                 Text("P", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(28.dp))
                 Text("GD", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(32.dp))
-                Text("GF/GA", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(40.dp))
+                Text("Form", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(48.dp))
                 Text("Pts", color = TextGrey, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
             }
         }
@@ -115,7 +133,8 @@ private fun StandingRow(row: CachedStanding, totalTeams: Int) {
         GoalsSparkline(
             goalsFor = row.goalsFor,
             goalsAgainst = row.goalsAgainst,
-            modifier = Modifier.width(40.dp)
+            form = row.form,
+            panelModifier = Modifier.width(48.dp)
         )
         Text(
             "${row.points}",

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.rank.football.ui.theme.CardDark
 import com.rank.football.ui.theme.LiveRed
 import com.rank.football.ui.theme.NeonGreen
@@ -41,7 +42,7 @@ import com.rank.football.ui.theme.SurfaceDark
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 
-/** Top bar used on main tab screens with optional trailing actions. */
+/** Top bar used on main tab screens — zip-style brand mark + actions. */
 @Composable
 fun AppScreenHeader(
     title: String,
@@ -49,32 +50,55 @@ fun AppScreenHeader(
     modifier: Modifier = Modifier,
     trailing: @Composable () -> Unit = {}
 ) {
+    val isHomeBrand = title.contains("Football", ignoreCase = true) ||
+        title.contains("Watch", ignoreCase = true)
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(StadiumBlack, StadiumBlack.copy(alpha = 0.92f))
-                )
-            )
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .background(StadiumBlack)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineMedium,
-                color = TextWhite,
-                fontWeight = FontWeight.Bold
-            )
-            if (subtitle != null) {
-                Spacer(modifier = Modifier.height(2.dp))
+        if (isHomeBrand) {
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextGrey
+                    text = "WATCH",
+                    color = PitchGreen,
+                    fontFamily = com.rank.football.ui.theme.BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp,
+                    letterSpacing = 3.sp
                 )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "FOOTBALL",
+                    color = TextWhite,
+                    fontFamily = com.rank.football.ui.theme.BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    letterSpacing = (-0.3).sp
+                )
+            }
+        } else {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title.uppercase(),
+                    color = TextWhite,
+                    fontFamily = com.rank.football.ui.theme.BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 28.sp,
+                    letterSpacing = (-0.5).sp
+                )
+                if (subtitle != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextGrey
+                    )
+                }
             }
         }
         trailing()
@@ -109,8 +133,8 @@ fun SectionTitle(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
-                color = if (isLive) NeonGreen else PitchGreen,
-                fontWeight = FontWeight.SemiBold
+                color = TextWhite,
+                fontWeight = FontWeight.Black
             )
         }
         if (trailing != null) {

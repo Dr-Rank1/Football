@@ -1,7 +1,12 @@
 package com.rank.football.cast
 
 import android.content.Context
+import android.net.Uri
+import com.google.android.gms.cast.MediaInfo
+import com.google.android.gms.cast.MediaLoadRequestData
+import com.google.android.gms.cast.MediaMetadata
 import com.google.android.gms.cast.framework.CastContext
+import com.google.android.gms.common.images.WebImage
 
 enum class CastState { DISCONNECTED, CONNECTING, CONNECTED }
 
@@ -23,8 +28,32 @@ object CastManager {
     fun isConnected(): Boolean = castContext?.sessionManager?.currentCastSession?.isConnected == true
 
     /** Loads media onto the connected Cast receiver. */
-    fun loadMedia(streamUrl: String, title: String, posterUrl: String) {
-        // Cast media loading handled via Cast SDK session; stub for receiver integration
+    fun loadMedia(streamUrl: String, title: String, posterUrl: String = "") {
+        val session = castContext?.sessionManager?.currentCastSession ?: return
+        val client = session.remoteMediaClient ?: return
+        currentDeviceName = session.castDevice?.friendlyName
+        val metadata = MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE).apply {
+            putString(MediaMetadata.KEY_TITLE, title)
+            if (posterUrl.isNotBlank()) {
+                addImage(WebImage(Uri.parse(posterUrl)))
+            }
+        }
+        val contentType = when {
+            streamUrl.contains(".m3u8", ignoreCase = true) -> "application/x-mpegURL"
+            streamUrl.contains(".mpd", ignoreCase = true) -> "application/dash+xml"
+            else -> "video/mp4"
+        }
+        val mediaInfo = MediaInfo.Builder(streamUrl)
+            .setStreamType(MediaInfo.STREAM_TYPE_BUFFERED)
+            .setContentType(contentType)
+            .setMetadata(metadata)
+            .build()
+        client.load(
+            MediaLoadRequestData.Builder()
+                .setMediaInfo(mediaInfo)
+                .setAutoplay(true)
+                .build()
+        )
     }
 
     /** Pauses remote Cast playback. */

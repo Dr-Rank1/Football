@@ -9,6 +9,7 @@ import com.rank.football.data.model.isLive
 import com.rank.football.data.model.isUpcoming
 import com.rank.football.data.repository.FootballRepository
 import com.rank.football.data.repository.WORLD_CUP_LEAGUE_ID
+import com.rank.football.data.repository.StreamCatalogStatus
 import com.rank.football.data.repository.StreamRepository
 import com.rank.football.util.Result
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,7 +96,8 @@ class LeaguesViewModel(application: Application) : AndroidViewModel(application)
             _leagues.value = Result.Loading
             try {
                 app.syncStreamCatalog()
-                _catalogConfigured.value = streamRepository.catalogLoaded.value
+                _catalogConfigured.value =
+                    streamRepository.catalogStatus.value == StreamCatalogStatus.READY
                 val today = LocalDate.now()
                 val live = streamRepository.filterStreamable(repository.getLiveFixtures())
                 val todayFixtures = streamRepository.filterStreamable(repository.getFixturesByDate(today))

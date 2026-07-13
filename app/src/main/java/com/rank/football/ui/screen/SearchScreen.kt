@@ -42,13 +42,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.rank.football.ui.theme.TextWhite
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.rank.football.R
+import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.local.RecentSearchEntry
+import com.rank.football.data.repository.FavoritesRepository
+import com.rank.football.ui.components.FavoriteButton
 import com.rank.football.ui.components.FilterPill
 import com.rank.football.ui.components.FilterPillRow
 import com.rank.football.ui.components.LoadingShimmerList
@@ -58,7 +62,6 @@ import com.rank.football.ui.theme.PitchGreen
 import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.SurfaceDark
 import com.rank.football.ui.theme.TextGrey
-import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.MatchSearchFilter
 import com.rank.football.viewmodel.SearchTab
@@ -74,6 +77,8 @@ fun SearchScreen(
     onBack: () -> Unit,
     viewModel: SearchViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    val favoritesRepository = remember { FavoritesRepository(AppDatabase.getInstance(context)) }
     val query by viewModel.query.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val matchFilter by viewModel.matchFilter.collectAsState()
@@ -82,6 +87,8 @@ fun SearchScreen(
     val matches by viewModel.matches.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState(initial = emptyList())
     val trending by viewModel.trending.collectAsState()
+    val aiSuggestions by viewModel.aiSuggestions.collectAsState()
+    val loadingSuggestions by viewModel.loadingSuggestions.collectAsState()
     var active by remember { mutableStateOf(true) }
 
     Column(
@@ -181,35 +188,139 @@ fun SearchScreen(
             when (selectedTab) {
                 SearchTab.TEAMS -> when (val result = teams) {
                     is Result.Loading -> item { LoadingShimmerList() }
-                    is Result.Success -> items(result.data) { item ->
-                        SearchResultRow(
-                            logo = item.team.logo,
-                            title = item.team.name,
-                            subtitle = item.venue?.city
-                        )
+                    is Result.Success -> {
+                        if (result.data.isEmpty() && query.length >= 2) {
+                            item {
+                                AiSuggestionsBlock(
+                                    loading = loadingSuggestions,
+                                    suggestions = aiSuggestions,
+                                    onPick = { term ->
+                                        viewModel.setQuery(term)
+                                        viewModel.search(term)
+                                    }
+                                )
+                            }
+                        } else {
+                            items(result.data) { item ->
+                                SearchResultRow(
+                                    logo = item.team.logo,
+                                    title = item.team.name,
+                                    subtitle = item.venue?.city,
+                                    trailing = {
+                                        FavoriteButton(
+                                            teamId = item.team.id,
+                                            teamName = item.team.name,
+                                            teamLogo = item.team.logo,
+                                            leagueId = 0,
+                                            leagueName = item.venue?.city ?: "",
+                                            favoritesRepository = favoritesRepository,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                )
+                            }
+                        }
                     }
                     is Result.Error -> item { Text(result.message, color = TextWhite) }
                 }
                 SearchTab.LEAGUES -> when (val result = leagues) {
                     is Result.Loading -> item { LoadingShimmerList() }
-                    is Result.Success -> items(result.data) { item ->
-                        SearchResultRow(
-                            logo = item.league.logo,
-                            title = item.league.name,
-                            subtitle = item.country?.name
-                        )
+                    is Result.Success -> {
+                        if (result.data.isEmpty() && query.length >= 2) {
+                            item {
+                                AiSuggestionsBlock(
+                                    loading = loadingSuggestions,
+                                    suggestions = aiSuggestions,
+                                    onPick = { term ->
+                                        viewModel.setQuery(term)
+                                        viewModel.search(term)
+                                    }
+                                )
+                            }
+                        } else {
+                            items(result.data) { item ->
+                                SearchResultRow(
+                                    logo = item.league.logo,
+                                    title = item.league.name,
+                                    subtitle = item.country?.name
+                                )
+                            }
+                        }
                     }
                     is Result.Error -> item { Text(result.message, color = TextWhite) }
                 }
                 SearchTab.MATCHES -> when (val result = matches) {
                     is Result.Loading -> item { LoadingShimmerList() }
-                    is Result.Success -> items(result.data, key = { it.fixture.id }) { fixture ->
-                        MatchCard(
-                            fixture = fixture,
-                            onClick = { onMatchClick(fixture.fixture.id) }
-                        )
+                    is Result.Success -> {
+                        if (result.data.isEmpty() && query.length >= 2) {
+                            item {
+                                AiSuggestionsBlock(
+                                    loading = loadingSuggestions,
+                                    suggestions = aiSuggestions,
+                                    onPick = { term ->
+                                        viewModel.setQuery(term)
+                                        viewModel.search(term)
+                                    }
+                                )
+                            }
+                        } else {
+                            items(result.data, key = { it.fixture.id }) { fixture ->
+                                MatchCard(
+                                    fixture = fixture,
+                                    onClick = { onMatchClick(fixture.fixture.id) },
+                                    favoritesRepository = favoritesRepository
+                                )
+                            }
+                        }
                     }
                     is Result.Error -> item { Text(result.message, color = TextWhite) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiSuggestionsBlock(
+    loading: Boolean,
+    suggestions: List<String>,
+    onPick: (String) -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text(
+            text = stringResource(R.string.search_no_results),
+            color = TextGrey,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+        when {
+            loading -> {
+                Text(
+                    text = stringResource(R.string.search_ai_loading),
+                    color = PitchGreen,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                LoadingShimmerList(count = 1)
+            }
+            suggestions.isNotEmpty() -> {
+                Text(
+                    text = stringResource(R.string.search_ai_suggestions),
+                    color = TextGrey,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(end = 8.dp)
+                ) {
+                    items(suggestions) { term ->
+                        FilterChip(
+                            selected = false,
+                            onClick = { onPick(term) },
+                            label = { Text(term) }
+                        )
+                    }
                 }
             }
         }
@@ -279,7 +390,12 @@ private fun GroupedRecentSearches(
 }
 
 @Composable
-private fun SearchResultRow(logo: String?, title: String, subtitle: String?) {
+private fun SearchResultRow(
+    logo: String?,
+    title: String,
+    subtitle: String?,
+    trailing: @Composable (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -287,7 +403,6 @@ private fun SearchResultRow(logo: String?, title: String, subtitle: String?) {
             .clip(RoundedCornerShape(14.dp))
             .background(CardDark)
             .border(1.dp, SurfaceDark, RoundedCornerShape(14.dp))
-            .clickable { }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -299,11 +414,12 @@ private fun SearchResultRow(logo: String?, title: String, subtitle: String?) {
                 .padding(end = 12.dp),
             contentScale = ContentScale.Fit
         )
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, color = TextWhite, style = MaterialTheme.typography.bodyMedium)
             subtitle?.let {
                 Text(it, color = PitchGreen, style = MaterialTheme.typography.labelSmall)
             }
         }
+        trailing?.invoke()
     }
 }

@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +52,8 @@ import com.rank.football.ads.AdConstants
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.isLive
 import com.rank.football.data.model.isUpcoming
+import com.rank.football.GoalStreamApp
+import com.rank.football.data.repository.StreamCatalogStatus
 import com.rank.football.ui.components.AppScreenHeader
 import com.rank.football.ui.components.BannerAdView
 import com.rank.football.ui.components.ErrorState
@@ -64,6 +65,7 @@ import com.rank.football.ui.components.MatchCard
 import com.rank.football.ui.components.NoStreamsContext
 import com.rank.football.ui.components.NoStreamsEmptyState
 import com.rank.football.ui.components.SummaryCard
+import com.rank.football.ui.components.UpcomingMatchSheet
 import com.rank.football.ui.theme.CardDark
 import com.rank.football.ui.theme.LiveRed
 import com.rank.football.ui.theme.NeonGreen
@@ -72,7 +74,6 @@ import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.SurfaceDark
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
-import com.rank.football.util.MatchReminderScheduler
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.CalendarDayUi
 import com.rank.football.viewmodel.FixtureDayFilter
@@ -93,6 +94,9 @@ fun FixturesScreen(
     val dayFilter by viewModel.dayFilter.collectAsState()
     val fixtures by viewModel.fixtures.collectAsState()
     val context = LocalContext.current
+    val app = context.applicationContext as GoalStreamApp
+    val catalogStatus by app.streamRepository.catalogStatus.collectAsState()
+    val catalogHasStreams = catalogStatus == StreamCatalogStatus.READY
     var reminderFixture by remember { mutableStateOf<FixtureItem?>(null) }
     val calendarListState = rememberLazyListState()
 
@@ -175,6 +179,7 @@ fun FixturesScreen(
                 if (result.data.isEmpty()) {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.FIXTURES,
+                        catalogHasStreams = catalogHasStreams,
                         modifier = Modifier
                             .weight(1f)
                             .padding(top = 8.dp),
@@ -216,30 +221,9 @@ fun FixturesScreen(
     }
 
     reminderFixture?.let { fixture ->
-        AlertDialog(
-            onDismissRequest = { reminderFixture = null },
-            title = { Text(stringResource(R.string.set_reminder)) },
-            text = { Text(stringResource(R.string.set_reminder_message)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    MatchReminderScheduler.scheduleReminder(
-                        context = context,
-                        fixtureId = fixture.fixture.id,
-                        homeTeam = fixture.teams.home.name,
-                        awayTeam = fixture.teams.away.name,
-                        kickOffIso = fixture.fixture.date
-                    )
-                    reminderFixture = null
-                }) {
-                    Text(stringResource(R.string.confirm), color = PitchGreen)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { reminderFixture = null }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-            containerColor = SurfaceDark
+        UpcomingMatchSheet(
+            fixture = fixture,
+            onDismiss = { reminderFixture = null }
         )
     }
 }
