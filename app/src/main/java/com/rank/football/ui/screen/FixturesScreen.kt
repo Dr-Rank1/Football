@@ -49,9 +49,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rank.football.R
 import com.rank.football.ads.AdConstants
+import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.isLive
 import com.rank.football.data.model.isUpcoming
+import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.repository.StreamCatalogStatus
 import com.rank.football.ui.components.AppScreenHeader
@@ -97,6 +99,8 @@ fun FixturesScreen(
     val app = context.applicationContext as GoalStreamApp
     val catalogStatus by app.streamRepository.catalogStatus.collectAsState()
     val catalogHasStreams = catalogStatus == StreamCatalogStatus.READY
+    val catalogPending = catalogStatus == StreamCatalogStatus.PENDING
+    val favoritesRepository = remember { FavoritesRepository(AppDatabase.getInstance(context)) }
     var reminderFixture by remember { mutableStateOf<FixtureItem?>(null) }
     val calendarListState = rememberLazyListState()
 
@@ -105,7 +109,7 @@ fun FixturesScreen(
         if (index >= 0) calendarListState.animateScrollToItem(index.coerceAtLeast(0))
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
         AppScreenHeader(
             title = stringResource(R.string.fixtures_title),
             subtitle = stringResource(R.string.fixtures_subtitle),
@@ -177,6 +181,9 @@ fun FixturesScreen(
             )
             is Result.Success -> {
                 if (result.data.isEmpty()) {
+                    if (catalogPending) {
+                        LoadingShimmerList(modifier = Modifier.weight(1f))
+                    } else {
                     NoStreamsEmptyState(
                         context = NoStreamsContext.FIXTURES,
                         catalogHasStreams = catalogHasStreams,
@@ -186,6 +193,7 @@ fun FixturesScreen(
                         onBrowseLeagues = onBrowseLeagues,
                         onRefresh = { viewModel.refreshCalendar() }
                     )
+                    }
                 } else {
                     LazyColumn(
                         modifier = Modifier.weight(1f),
@@ -208,7 +216,8 @@ fun FixturesScreen(
                                             fixture.isUpcoming() -> reminderFixture = fixture
                                             else -> onMatchClick(fixture.fixture.id)
                                         }
-                                    }
+                                    },
+                                    favoritesRepository = favoritesRepository
                                 )
                             }
                         }

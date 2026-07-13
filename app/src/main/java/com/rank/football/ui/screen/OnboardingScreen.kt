@@ -124,6 +124,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                     )
                 )
             }
+            OnboardingPreference.setPreferredLeagueIds(context, selectedLeagues)
             OnboardingPreference.setOnboardingComplete(context)
             onComplete()
         }

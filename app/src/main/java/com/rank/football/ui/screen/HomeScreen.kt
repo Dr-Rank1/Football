@@ -1,45 +1,30 @@
 package com.rank.football.ui.screen
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rank.football.GoalStreamApp
-import com.rank.football.R
 import com.rank.football.ads.AdConstants
 import com.rank.football.data.repository.StreamCatalogStatus
-import com.rank.football.ui.components.AppScreenHeader
 import com.rank.football.ui.components.BannerAdView
 import com.rank.football.ui.components.FavouritesStrip
 import com.rank.football.ui.components.HeroBanner
 import com.rank.football.ui.components.NoStreamsContext
 import com.rank.football.ui.components.NoStreamsEmptyState
 import com.rank.football.ui.components.PreMatchHypeCard
-import com.rank.football.ui.theme.TextGrey
-import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.HomeViewModel
 import com.rank.football.viewmodel.LeagueGroup
@@ -67,6 +52,7 @@ fun HomeScreen(
     val app = LocalContext.current.applicationContext as GoalStreamApp
     val catalogStatus by app.streamRepository.catalogStatus.collectAsState()
     val catalogHasStreams = catalogStatus == StreamCatalogStatus.READY
+    val catalogPending = catalogStatus == StreamCatalogStatus.PENDING
 
     val listState = rememberLazyListState()
     val parallaxOffset by remember {
@@ -107,48 +93,25 @@ fun HomeScreen(
         filteredToday is Result.Success &&
         (filteredToday as Result.Success).data.isEmpty()
 
-    androidx.compose.foundation.layout.Column(
-        modifier = modifier
+    Column(
+        modifier = Modifier
             .fillMaxSize()
             .padding(bottom = 8.dp)
     ) {
-        AppScreenHeader(
-            title = stringResource(R.string.home_title),
-            subtitle = null,
-            trailing = {
-                IconButton(
-                    onClick = onSearchClick,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(TextWhite.copy(alpha = 0.05f))
-                        .border(1.dp, TextWhite.copy(alpha = 0.06f), androidx.compose.foundation.shape.CircleShape)
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = stringResource(R.string.search), tint = TextGrey, modifier = Modifier.size(16.dp))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(
-                    onClick = onSettingsClick,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(TextWhite.copy(alpha = 0.05f))
-                        .border(1.dp, TextWhite.copy(alpha = 0.06f), androidx.compose.foundation.shape.CircleShape)
-                ) {
-                    Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title), tint = TextGrey, modifier = Modifier.size(16.dp))
-                }
-            }
-        )
-
-        FavouritesStrip(
-            favorites = favorites,
-            liveFixtures = liveList,
-            selectedTeamId = filterTeamId,
-            onTeamClick = { viewModel.setFilterTeamId(it) },
-            modifier = Modifier.padding(bottom = 8.dp, top = 4.dp)
-        )
-
         if (fullyEmpty && liveMatches !is Result.Loading && todayMatches !is Result.Loading) {
+            HeroBanner(
+                fixtures = emptyList(),
+                onWatchClick = onMatchClick,
+                onSearchClick = onSearchClick,
+                onSettingsClick = onSettingsClick
+            )
+            if (catalogPending) {
+                com.rank.football.ui.components.LoadingShimmerList(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 8.dp)
+                )
+            } else {
             NoStreamsEmptyState(
                 context = NoStreamsContext.HOME,
                 catalogHasStreams = catalogHasStreams,
@@ -159,6 +122,7 @@ fun HomeScreen(
                 onBrowseLeagues = onBrowseLeagues,
                 onRefresh = { viewModel.loadData() }
             )
+            }
         } else {
             LazyColumn(
                 state = listState,
@@ -169,7 +133,19 @@ fun HomeScreen(
                     HeroBanner(
                         fixtures = viewModel.featuredMatches(),
                         onWatchClick = onMatchClick,
+                        onSearchClick = onSearchClick,
+                        onSettingsClick = onSettingsClick,
                         parallaxOffsetPx = parallaxOffset
+                    )
+                }
+
+                item {
+                    FavouritesStrip(
+                        favorites = favorites,
+                        liveFixtures = liveList,
+                        selectedTeamId = filterTeamId,
+                        onTeamClick = { viewModel.setFilterTeamId(it) },
+                        modifier = Modifier.padding(bottom = 8.dp, top = 4.dp)
                     )
                 }
 

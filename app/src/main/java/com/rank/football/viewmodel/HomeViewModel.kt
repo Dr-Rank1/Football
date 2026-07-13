@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.local.AppDatabase
+import com.rank.football.data.local.OnboardingPreference
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.isFinished
 import com.rank.football.data.model.isUpcoming
@@ -70,8 +71,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         emptyList()
     )
 
+    private var preferredLeagueIds: Set<Int> = emptySet()
+
     init {
         loadData()
+        viewModelScope.launch {
+            OnboardingPreference.preferredLeagueIds(getApplication()).collect { ids ->
+                preferredLeagueIds = ids
+                // Re-sort today's groups when prefs arrive
+                val current = _todayMatches.value
+                if (current is Result.Success) {
+                    _todayMatches.value = Result.Success(
+                        current.data.sortedWith(
+                            compareByDescending<LeagueGroup> { it.leagueId in preferredLeagueIds }
+                                .thenBy { it.leagueName }
+                        )
+                    )
+                }
+            }
+        }
         viewModelScope.launch {
             favoritesRepository.allFavorites.collect { favs ->
                 _favoriteFixtures.value = Result.Loading
@@ -195,6 +213,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     fixtures = items
                 )
             }
-            .sortedBy { it.leagueName }
+            .sortedWith(
+                compareByDescending<LeagueGroup> { it.leagueId in preferredLeagueIds }
+                    .thenBy { it.leagueName }
+            )
     }
 }

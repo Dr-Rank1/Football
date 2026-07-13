@@ -70,12 +70,12 @@ fun MatchCard(
     compact: Boolean = false
 ) {
     if (compact) {
-        CompactOnNowCard(fixture = fixture, onClick = onClick, modifier = modifier)
+        CompactOnNowCard(fixture = fixture, onClick = onClick, modifier = Modifier)
     } else {
         FullMatchCard(
             fixture = fixture,
             onClick = onClick,
-            modifier = modifier,
+            modifier = Modifier,
             favoritesRepository = favoritesRepository
         )
     }
@@ -99,9 +99,10 @@ private fun CompactOnNowCard(
         previousScore = scoreKey
     }
     val recentGoal = isLive && lastGoalAt > 0L && System.currentTimeMillis() - lastGoalAt < 120_000L
+    val accent = CompetitionColors.accent(fixture.league.name, fixture.league.id)
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .width(148.dp)
             .clip(RoundedCornerShape(16.dp))
             .border(
@@ -111,13 +112,19 @@ private fun CompactOnNowCard(
             )
             .background(CardDark)
             .clickable(onClick = onClick)
-            .padding(12.dp)
     ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .background(if (recentGoal) PitchGreen else accent)
+        )
+        Column(modifier = Modifier.padding(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
                     .size(6.dp)
-                    .background(LiveRed, CircleShape)
+                    .background(if (isLive) LiveRed else accent, CircleShape)
             )
             Spacer(Modifier.width(6.dp))
             Text(
@@ -127,7 +134,7 @@ private fun CompactOnNowCard(
                 fontWeight = FontWeight.Black,
                 fontSize = 10.sp
             )
-            Text(" · ", color = TextWhite.copy(alpha = 0.25f), fontSize = 8.sp)
+            Text(" Â· ", color = TextWhite.copy(alpha = 0.25f), fontSize = 8.sp)
             Text(
                 text = fixture.league.name,
                 color = TextWhite.copy(alpha = 0.35f),
@@ -151,6 +158,7 @@ private fun CompactOnNowCard(
         ScoreLine(name = fixture.teams.home.name, logo = fixture.teams.home.logo, score = homeGoals, flash = recentGoal)
         Spacer(Modifier.height(6.dp))
         ScoreLine(name = fixture.teams.away.name, logo = fixture.teams.away.logo, score = awayGoals, flash = false)
+        }
     }
 }
 
@@ -226,7 +234,7 @@ private fun FullMatchCard(
     val leftAccent = if (recentGoal) PitchGreen else accent
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
@@ -235,7 +243,11 @@ private fun FullMatchCard(
                 if (recentGoal) PitchGreen else TextWhite.copy(alpha = 0.06f),
                 RoundedCornerShape(16.dp)
             )
-            .background(CardDark)
+            .background(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    listOf(leftAccent.copy(alpha = 0.16f), CardDark, CardDark)
+                )
+            )
             .clickable(onClick = onClick)
     ) {
         Row {
@@ -313,7 +325,7 @@ private fun FullMatchCard(
                                     scaleY = scoreScale.value
                                 }
                             )
-                            Text("–", color = TextWhite.copy(alpha = 0.25f), fontSize = 14.sp)
+                            Text("â€“", color = TextWhite.copy(alpha = 0.25f), fontSize = 14.sp)
                             Text(
                                 text = "$awayGoals",
                                 color = TextWhite,
@@ -389,7 +401,7 @@ private fun TeamBlock(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier,
+        modifier = Modifier,
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start
     ) {

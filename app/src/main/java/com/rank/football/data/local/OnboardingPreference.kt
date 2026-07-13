@@ -17,6 +17,7 @@ object OnboardingPreference {
     private val ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
     private val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
     private val RECENT_SEARCHES_V4 = stringPreferencesKey("recent_searches_v4")
+    private val PREFERRED_LEAGUES = stringPreferencesKey("preferred_leagues")
 
     /** Exposes the shared preferences DataStore instance. */
     fun dataStore(context: Context): DataStore<Preferences> = context.dataStore
@@ -26,6 +27,22 @@ object OnboardingPreference {
 
     suspend fun setOnboardingComplete(context: Context) {
         context.dataStore.edit { it[ONBOARDING_COMPLETE] = true }
+    }
+
+    /** League IDs chosen during onboarding (comma-separated). */
+    fun preferredLeagueIds(context: Context): Flow<Set<Int>> =
+        context.dataStore.data.map { prefs ->
+            prefs[PREFERRED_LEAGUES]
+                ?.split(",")
+                ?.mapNotNull { it.trim().toIntOrNull() }
+                ?.toSet()
+                ?: emptySet()
+        }
+
+    suspend fun setPreferredLeagueIds(context: Context, ids: Set<Int>) {
+        context.dataStore.edit { prefs ->
+            prefs[PREFERRED_LEAGUES] = ids.joinToString(",")
+        }
     }
 
     fun recentSearches(context: Context): Flow<List<String>> =

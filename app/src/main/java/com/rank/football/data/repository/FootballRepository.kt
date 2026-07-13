@@ -48,13 +48,17 @@ class FootballRepository(context: Context) {
     suspend fun getWorldCupFixtures(): List<FixtureItem> = withContext(Dispatchers.IO) {
         val year = LocalDate.now().year
         (listOf(year, year - 1)).flatMap { season ->
-            runCatching { api.getFixturesByLeague(WORLD_CUP_LEAGUE_ID, season).response }.getOrDefault(emptyList())
+            fetchFixtures("league_${WORLD_CUP_LEAGUE_ID}_$season") {
+                api.getFixturesByLeague(WORLD_CUP_LEAGUE_ID, season).response
+            }
         }.distinctBy { it.fixture.id }
     }
 
     suspend fun getFixturesByLeague(leagueId: Int, season: Int): List<FixtureItem> =
         withContext(Dispatchers.IO) {
-            runCatching { api.getFixturesByLeague(leagueId, season).response }.getOrDefault(emptyList())
+            fetchFixtures("league_${leagueId}_$season") {
+                api.getFixturesByLeague(leagueId, season).response
+            }
         }
 
     suspend fun getStandings(leagueId: Int, season: Int): StandingsLeagueItem? =

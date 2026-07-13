@@ -159,21 +159,27 @@ fun EmptyStateCard(
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, SurfaceDark, RoundedCornerShape(16.dp))
-            .background(CardDark)
+            .border(1.dp, TextWhite.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(PitchGreen.copy(alpha = 0.12f), CardDark)
+                )
+            )
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "⚽",
-            style = MaterialTheme.typography.displaySmall
+        Box(
+            modifier = Modifier
+                .size(width = 28.dp, height = 3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(PitchGreen)
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
             color = TextWhite,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            textAlign = TextAlign.Center
         )
         if (hint != null) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -181,7 +187,7 @@ fun EmptyStateCard(
                 text = hint,
                 style = MaterialTheme.typography.bodySmall,
                 color = TextGrey,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                textAlign = TextAlign.Center
             )
         }
     }
