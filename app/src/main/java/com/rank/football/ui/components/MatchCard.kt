@@ -36,16 +36,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.isLive
-import com.rank.football.data.model.isUpcoming
 import com.rank.football.data.model.kickOffTime
 import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.ui.theme.BarlowCondensed
@@ -55,7 +56,6 @@ import com.rank.football.ui.theme.DmSans
 import com.rank.football.ui.theme.GoalYellow
 import com.rank.football.ui.theme.LiveRed
 import com.rank.football.ui.theme.PitchGreen
-import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.MatchCountdown
@@ -203,22 +203,12 @@ private fun FullMatchCard(
     favoritesRepository: FavoritesRepository? = null
 ) {
     val isLive = fixture.isLive()
-    var countdown by remember(fixture.fixture.id) { mutableStateOf<String?>(null) }
-    val homeGoals = fixture.goals.home ?: 0
-    val awayGoals = fixture.goals.away ?: 0
+    val homeGoals = fixture.goals.home
+    val awayGoals = fixture.goals.away
     val scoreKey = "$homeGoals-$awayGoals"
     var previousScore by remember(fixture.fixture.id) { mutableStateOf(scoreKey) }
     var lastGoalAt by remember(fixture.fixture.id) { mutableLongStateOf(0L) }
     val scoreScale = remember { Animatable(1f) }
-
-    LaunchedEffect(fixture.fixture.id, fixture.fixture.date) {
-        if (fixture.isUpcoming()) {
-            while (true) {
-                countdown = MatchCountdown.countdownText(fixture)
-                delay(60_000)
-            }
-        }
-    }
 
     LaunchedEffect(scoreKey) {
         if (previousScore != scoreKey && isLive) {
@@ -230,163 +220,136 @@ private fun FullMatchCard(
     }
 
     val recentGoal = isLive && lastGoalAt > 0L && System.currentTimeMillis() - lastGoalAt < 120_000L
-    val accent = CompetitionColors.accent(fixture.league.name, fixture.league.id)
-    val leftAccent = if (recentGoal) PitchGreen else accent
 
+    val cardShape = RoundedCornerShape(14.dp)
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .padding(horizontal = 20.dp, vertical = 5.dp)
+            .clip(cardShape)
+            .background(CardDark)
             .border(
-                1.dp,
-                if (recentGoal) PitchGreen else TextWhite.copy(alpha = 0.06f),
-                RoundedCornerShape(16.dp)
+                width = 3.dp,
+                color = if (isLive) LiveRed else Color.Transparent,
+                shape = cardShape
             )
-            .background(
-                androidx.compose.ui.graphics.Brush.horizontalGradient(
-                    listOf(leftAccent.copy(alpha = 0.16f), CardDark, CardDark)
-                )
+            .border(
+                width = 1.dp,
+                color = if (recentGoal) PitchGreen else TextWhite.copy(alpha = if (isLive) 0.1f else 0.055f),
+                shape = cardShape
             )
             .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp)
     ) {
-        Row {
-            Box(
-                Modifier
-                    .width(3.dp)
-                    .height(if (isLive) 140.dp else 88.dp)
-                    .background(leftAccent)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = fixture.league.name,
+                color = TextGrey,
+                fontFamily = DmSans,
+                fontWeight = FontWeight.Medium,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(14.dp)
+            Spacer(Modifier.width(8.dp))
+            StatusChip(
+                status = fixture.fixture.status.short,
+                elapsed = fixture.fixture.status.elapsed
+            )
+        }
+
+        Spacer(Modifier.height(9.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (recentGoal) {
-                        val pulse = rememberInfiniteTransition(label = "goal_chip")
-                        val a by pulse.animateFloat(0.65f, 1f, infiniteRepeatable(tween(500), RepeatMode.Reverse), "ga")
-                        Text(
-                            text = "GOAL!",
-                            color = StadiumBlack,
-                            fontFamily = DmSans,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 9.sp,
-                            modifier = Modifier
-                                .graphicsLayer { alpha = a }
-                                .background(GoalYellow, RoundedCornerShape(50))
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
-                    } else if (isLive) {
-                        LiveBadge(minute = fixture.fixture.status.elapsed, large = true)
-                    } else {
-                        Text(
-                            text = countdown ?: fixture.kickOffTime(),
-                            color = PitchGreen,
-                            fontFamily = BarlowCondensed,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp
-                        )
-                    }
-                    CompChip(name = fixture.league.name, leagueId = fixture.league.id, compact = true)
-                }
+                TeamCrest(
+                    name = fixture.teams.home.name,
+                    logo = fixture.teams.home.logo,
+                    size = 28.dp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = lastWord(fixture.teams.home.name),
+                    color = TextWhite,
+                    fontFamily = DmSans,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-                Spacer(Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    TeamBlock(
-                        name = fixture.teams.home.name,
-                        logo = fixture.teams.home.logo,
-                        teamId = fixture.teams.home.id,
-                        leagueId = fixture.league.id,
-                        leagueName = fixture.league.name,
-                        alignEnd = false,
-                        favoritesRepository = favoritesRepository,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        if (isLive || fixture.goals.home != null) {
-                            Text(
-                                text = "$homeGoals",
-                                color = TextWhite,
-                                fontFamily = BarlowCondensed,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 24.sp,
-                                letterSpacing = (-0.5).sp,
-                                modifier = Modifier.graphicsLayer {
-                                    scaleX = scoreScale.value
-                                    scaleY = scoreScale.value
-                                }
-                            )
-                            Text("â€“", color = TextWhite.copy(alpha = 0.25f), fontSize = 14.sp)
-                            Text(
-                                text = "$awayGoals",
-                                color = TextWhite,
-                                fontFamily = BarlowCondensed,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 24.sp,
-                                letterSpacing = (-0.5).sp
-                            )
-                        } else {
-                            Text(
-                                "VS",
-                                color = TextWhite.copy(alpha = 0.3f),
-                                fontFamily = BarlowCondensed,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp
-                            )
+            Box(
+                modifier = Modifier.width(64.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (homeGoals != null && awayGoals != null) {
+                    Text(
+                        text = "$homeGoals – $awayGoals",
+                        color = TextWhite,
+                        fontFamily = BarlowCondensed,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 26.sp,
+                        letterSpacing = (-1).sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.graphicsLayer {
+                            scaleX = scoreScale.value
+                            scaleY = scoreScale.value
                         }
-                    }
-                    TeamBlock(
-                        name = fixture.teams.away.name,
-                        logo = fixture.teams.away.logo,
-                        teamId = fixture.teams.away.id,
-                        leagueId = fixture.league.id,
-                        leagueName = fixture.league.name,
-                        alignEnd = true,
-                        favoritesRepository = favoritesRepository,
-                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    Text(
+                        text = fixture.kickOffTime(),
+                        color = GoalYellow,
+                        fontFamily = BarlowCondensed,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
                     )
                 }
+            }
 
-                if (isLive) {
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PitchGreen)
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            tint = StadiumBlack,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "WATCH NOW",
-                            color = StadiumBlack,
-                            fontFamily = BarlowCondensed,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            letterSpacing = 1.5.sp
-                        )
-                    }
-                }
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = lastWord(fixture.teams.away.name),
+                    color = TextWhite,
+                    fontFamily = DmSans,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End
+                )
+                Spacer(Modifier.width(8.dp))
+                TeamCrest(
+                    name = fixture.teams.away.name,
+                    logo = fixture.teams.away.logo,
+                    size = 28.dp
+                )
             }
         }
     }
+}
+
+private fun lastWord(name: String): String {
+    val trimmed = name.trim()
+    val parts = trimmed.split(Regex("\\s+"))
+    return if (parts.size > 1) parts.last() else trimmed
 }
 
 @Composable

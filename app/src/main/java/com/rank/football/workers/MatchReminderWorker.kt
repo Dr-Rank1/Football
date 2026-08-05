@@ -21,6 +21,7 @@ class MatchReminderWorker(
         val home = inputData.getString(KEY_HOME) ?: return Result.failure()
         val away = inputData.getString(KEY_AWAY) ?: return Result.failure()
         val fixtureId = inputData.getInt(KEY_FIXTURE_ID, 0)
+        if (fixtureId <= 0) return Result.failure()
 
         createChannel()
 

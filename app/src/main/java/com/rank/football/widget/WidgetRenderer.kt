@@ -177,7 +177,7 @@ object WidgetRenderer {
 
         )
 
-        val minute = if (match.isLive()) "${match.fixture.status.elapsed ?: 0}' 🔴" else match.fixture.status.short
+        val minute = if (match.isLive()) "${match.fixture.status.elapsed ?: 0}' LIVE" else match.fixture.status.short
 
         views.setTextViewText(R.id.widget_minute, minute)
 
@@ -271,7 +271,7 @@ object WidgetRenderer {
 
         match ?: return "—"
 
-        val minute = if (match.isLive()) "${match.fixture.status.elapsed ?: 0}'🔴" else match.fixture.status.short
+        val minute = if (match.isLive()) "${match.fixture.status.elapsed ?: 0}' LIVE" else match.fixture.status.short
 
         return "${match.teams.home.name} ${match.goals.home ?: 0}-${match.goals.away ?: 0} ${match.teams.away.name}  $minute"
 

@@ -1,11 +1,14 @@
 package com.rank.football.ui.theme
 
+import android.app.Activity
+import android.graphics.Color
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.graphics.Color
-import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = PitchGreen,
@@ -23,17 +26,19 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun GoalStreamTheme(content: @Composable () -> Unit) {
-    val systemUiController = rememberSystemUiController()
-
-    SideEffect {
-        systemUiController.setStatusBarColor(
-            color = Color.Transparent,
-            darkIcons = false
-        )
-        systemUiController.setNavigationBarColor(
-            color = StadiumBlack,
-            darkIcons = false
-        )
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = view.context.findActivity()?.window
+            if (window != null) {
+                window.statusBarColor = Color.TRANSPARENT
+                window.navigationBarColor = StadiumBlack.toArgb()
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = false
+                    isAppearanceLightNavigationBars = false
+                }
+            }
+        }
     }
 
     MaterialTheme(
@@ -41,4 +46,10 @@ fun GoalStreamTheme(content: @Composable () -> Unit) {
         typography = GoalStreamTypography,
         content = content
     )
+}
+
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

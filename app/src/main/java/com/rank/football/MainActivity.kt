@@ -10,6 +10,7 @@ import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.LocalActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,9 +19,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Sensors
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -68,13 +69,11 @@ import com.rank.football.ui.components.StreamNavItem
 import com.rank.football.ui.privacy.ConsentScreen
 import com.rank.football.ui.screen.FixturesScreen
 import com.rank.football.ui.screen.HomeScreen
-import com.rank.football.ui.screen.LeaguesScreen
 import com.rank.football.ui.screen.LiveScreen
 import com.rank.football.ui.screen.OnboardingScreen
 import com.rank.football.ui.screen.SearchScreen
 import com.rank.football.ui.screen.SettingsScreen
 import com.rank.football.ui.screen.WatchScreen
-import com.rank.football.ui.screen.StandingsScreen
 import com.rank.football.ui.settings.LanguageSettingsScreen
 import com.rank.football.ui.debug.AnalyticsDashboardScreen
 import com.rank.football.ui.settings.RevenueStatsScreen
@@ -221,10 +220,11 @@ private sealed class BottomNavItem(
     data object Home : BottomNavItem("home", R.string.nav_home, Icons.Default.Home)
     data object Live : BottomNavItem("live", R.string.nav_live, Icons.Default.Sensors)
     data object Fixtures : BottomNavItem("fixtures", R.string.nav_fixtures, Icons.Default.CalendarMonth)
-    data object Leagues : BottomNavItem("leagues", R.string.nav_leagues, Icons.Default.EmojiEvents)
+    data object Settings : BottomNavItem("settings", R.string.nav_settings, Icons.Default.Settings)
 }
 
 @Composable
+@Suppress("FlowOperatorInvokedInComposition")
 private fun GoalStreamNav(
     interstitialAdManager: InterstitialAdManager,
     rewardedAdManager: RewardedAdManager,
@@ -238,14 +238,13 @@ private fun GoalStreamNav(
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute != null &&
         !currentRoute.startsWith("watch") &&
-        !currentRoute.startsWith("standings/") &&
         currentRoute !in setOf(
-            "search", "settings", "language", "revenue", "analytics-dashboard"
+            "search", "language", "revenue", "analytics-dashboard"
         )
     var liveMatchCount by remember { mutableIntStateOf(0) }
     var pipFixture by remember { mutableStateOf<FixtureItem?>(null) }
     var latestLiveMatches by remember { mutableStateOf<List<FixtureItem>>(emptyList()) }
-    val activity = LocalContext.current as MainActivity
+    val activity = LocalActivity.current as? MainActivity
     val context = LocalContext.current
     val config = LocalConfiguration.current
     val isTablet = config.screenWidthDp >= 600
@@ -254,15 +253,16 @@ private fun GoalStreamNav(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val isOnline by NetworkMonitor.observeNetwork(context)
-        .map { it != com.rank.football.util.NetworkType.NONE }
-        .collectAsState(initial = true)
+    val isOnline by remember {
+        NetworkMonitor.observeNetwork(context)
+            .map { it != com.rank.football.util.NetworkType.NONE }
+    }.collectAsState(initial = true)
 
     val bottomItems = listOf(
         BottomNavItem.Home,
         BottomNavItem.Live,
         BottomNavItem.Fixtures,
-        BottomNavItem.Leagues
+        BottomNavItem.Settings
     )
 
     val rewardedInterstitial = remember { RewardedInterstitialManager(context) }
@@ -283,8 +283,10 @@ private fun GoalStreamNav(
         if (other != null && liveMatchCount >= 2) {
             pipFixture = other
         }
-        interstitialAdManager.showBeforeNavigation(activity) {
-            navController.navigate("watch/$fixtureId")
+        activity?.let { activity ->
+            interstitialAdManager.showBeforeNavigation(activity) {
+                navController.navigate("watch/$fixtureId")
+            }
         }
     }
 
@@ -302,10 +304,12 @@ private fun GoalStreamNav(
 
     LaunchedEffect(currentRoute) {
         if (currentRoute == "home") {
-            InAppReviewManager.maybeRequestReview(activity)
-            InAppUpdateManager.checkForUpdate(activity) {
-                scope.launch {
-                    snackbarHostState.showSnackbar("Update ready — Restart to apply")
+            activity?.let {
+                InAppReviewManager.maybeRequestReview(it)
+                InAppUpdateManager.checkForUpdate(it) {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Update ready — Restart to apply")
+                    }
                 }
             }
         }
@@ -346,62 +350,45 @@ private fun GoalStreamNav(
                 modifier = Modifier.padding(if (showBottomBar) padding else PaddingValues(0.dp))
             ) {
                 composable("home") {
-                    onWatchScreenChanged(false)
+                    LaunchedEffect(Unit) { onWatchScreenChanged(false) }
                     HomeScreen(
                         onMatchClick = navigateToWatch,
                         onSearchClick = { navController.navigate("search") },
                         onSettingsClick = { navController.navigate("settings") },
                         onBrowseFixtures = { navigateToTab("fixtures") },
-                        onBrowseLeagues = { navigateToTab("leagues") }
+                        onBrowseLive = { navigateToTab("live") }
                     )
                 }
                 composable("search") {
-                    onWatchScreenChanged(false)
+                    LaunchedEffect(Unit) { onWatchScreenChanged(false) }
                     SearchScreen(
                         onMatchClick = navigateToWatch,
                         onBack = { navController.popBackStack() }
                     )
                 }
                 composable("live") {
-                    onWatchScreenChanged(false)
+                    LaunchedEffect(Unit) { onWatchScreenChanged(false) }
                     LiveScreen(
                         onMatchClick = navigateToWatch,
                         onLiveCountChanged = { liveMatchCount = it },
                         onLiveMatchesChanged = { latestLiveMatches = it },
-                        onBrowseFixtures = { navigateToTab("fixtures") },
-                        onBrowseLeagues = { navigateToTab("leagues") }
-                    )
-                }
-                composable("fixtures") {
-                    onWatchScreenChanged(false)
-                    FixturesScreen(
-                        onMatchClick = navigateToWatch,
-                        onBrowseLeagues = { navigateToTab("leagues") }
-                    )
-                }
-                composable("leagues") {
-                    onWatchScreenChanged(false)
-                    LeaguesScreen(
-                        onMatchClick = navigateToWatch,
-                        onStandingsClick = { navController.navigate("standings/$it") },
                         onBrowseFixtures = { navigateToTab("fixtures") }
                     )
                 }
+                composable("fixtures") {
+                    LaunchedEffect(Unit) { onWatchScreenChanged(false) }
+                    FixturesScreen(
+                        onMatchClick = navigateToWatch
+                    )
+                }
                 composable("settings") {
-                    onWatchScreenChanged(false)
+                    LaunchedEffect(Unit) { onWatchScreenChanged(false) }
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onLanguageClick = { navController.navigate("language") },
                         onDebugClick = { navController.navigate("analytics-dashboard") },
                         onRevenueClick = { navController.navigate("revenue") }
                     )
-                }
-                composable(
-                    route = "standings/{leagueId}",
-                    arguments = listOf(navArgument("leagueId") { type = NavType.IntType })
-                ) {
-                    val leagueId = it.arguments?.getInt("leagueId") ?: 0
-                    StandingsScreen(leagueId = leagueId, onBack = { navController.popBackStack() })
                 }
                 composable("language") {
                     LanguageSettingsScreen(onBack = { navController.popBackStack() })
@@ -418,19 +405,21 @@ private fun GoalStreamNav(
                     route = "watch/{fixtureId}",
                     arguments = listOf(navArgument("fixtureId") { type = NavType.IntType })
                 ) {
-                    onWatchScreenChanged(true)
-                    onPlayingChanged(true)
+                    LaunchedEffect(Unit) {
+                        onWatchScreenChanged(true)
+                        onPlayingChanged(true)
+                    }
                     val fixtureId = it.arguments?.getInt("fixtureId") ?: 0
                     if (isTv) {
                         TvWatchScreen(
                             fixtureId = fixtureId,
                             onBack = {
                                 onPlayingChanged(false)
-                                activity.setImmersiveMode(false)
+                                activity?.setImmersiveMode(false)
                                 navController.popBackStack()
                             },
-                            onEnterFullscreen = { activity.setImmersiveMode(true) },
-                            onExitFullscreen = { activity.setImmersiveMode(false) },
+                            onEnterFullscreen = { activity?.setImmersiveMode(true) },
+                            onExitFullscreen = { activity?.setImmersiveMode(false) },
                             rewardedAdManager = rewardedAdManager
                         )
                     } else {
@@ -438,11 +427,11 @@ private fun GoalStreamNav(
                             fixtureId = fixtureId,
                             onBack = {
                                 onPlayingChanged(false)
-                                activity.setImmersiveMode(false)
+                                activity?.setImmersiveMode(false)
                                 navController.popBackStack()
                             },
-                            onEnterFullscreen = { activity.setImmersiveMode(true) },
-                            onExitFullscreen = { activity.setImmersiveMode(false) },
+                            onEnterFullscreen = { activity?.setImmersiveMode(true) },
+                            onExitFullscreen = { activity?.setImmersiveMode(false) },
                             rewardedAdManager = rewardedAdManager,
                             onAdPlayingChanged = onAdPlayingChanged,
                             isTablet = isTablet

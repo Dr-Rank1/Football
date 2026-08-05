@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -44,7 +43,7 @@ import com.rank.football.ui.theme.TextWhite
 
 /** Screen context for tailoring the no-streams empty state copy. */
 enum class NoStreamsContext {
-    HOME, LIVE, FIXTURES, LEAGUES
+    HOME, LIVE, FIXTURES
 }
 
 /**
@@ -59,7 +58,6 @@ fun NoStreamsEmptyState(
     catalogHasStreams: Boolean = true,
     compact: Boolean = false,
     onBrowseFixtures: (() -> Unit)? = null,
-    onBrowseLeagues: (() -> Unit)? = null,
     onRefresh: (() -> Unit)? = null
 ) {
     val offSeason = catalogHasStreams
@@ -68,8 +66,7 @@ fun NoStreamsEmptyState(
         !offSeason -> R.string.empty_catalog_body
         context == NoStreamsContext.HOME -> R.string.empty_streams_home_body
         context == NoStreamsContext.LIVE -> R.string.empty_streams_live_body
-        context == NoStreamsContext.FIXTURES -> R.string.empty_streams_fixtures_body
-        else -> R.string.empty_streams_leagues_body
+        else -> R.string.empty_streams_fixtures_body
     }
 
     Column(
@@ -118,51 +115,24 @@ fun NoStreamsEmptyState(
             EmptyStateTips(offSeason = offSeason)
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (offSeason && (onBrowseFixtures != null || onBrowseLeagues != null)) {
-                Row(
+            if (offSeason && onBrowseFixtures != null) {
+                OutlinedButton(
+                    onClick = onBrowseFixtures,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    if (onBrowseFixtures != null) {
-                        OutlinedButton(
-                            onClick = onBrowseFixtures,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.CalendarMonth,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = PitchGreen
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                stringResource(R.string.empty_streams_browse_fixtures),
-                                color = TextWhite,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
-                    if (onBrowseLeagues != null) {
-                        OutlinedButton(
-                            onClick = onBrowseLeagues,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.EmojiEvents,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = PitchGreen
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                stringResource(R.string.empty_streams_browse_leagues),
-                                color = TextWhite,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
-                    }
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = PitchGreen
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        stringResource(R.string.empty_streams_browse_fixtures),
+                        color = TextWhite,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
 
@@ -231,7 +201,6 @@ private fun EmptyStateTips(offSeason: Boolean) {
     ) {
         if (offSeason) {
             TipRow(stringResource(R.string.empty_streams_tip_fixtures))
-            TipRow(stringResource(R.string.empty_streams_tip_leagues))
             TipRow(stringResource(R.string.empty_streams_tip_notify))
         } else {
             TipRow(stringResource(R.string.empty_catalog_tip_refresh))

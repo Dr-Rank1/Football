@@ -6,10 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.rank.football.GoalStreamApp
 import com.rank.football.ai.SearchSuggestionEngine
 import com.rank.football.data.local.OnboardingPreference
-import com.rank.football.data.local.RecentSearchEntry
 import com.rank.football.data.model.FixtureItem
-import com.rank.football.data.model.LeagueItem
-import com.rank.football.data.model.TeamSearchItem
 import com.rank.football.data.model.isLive
 import com.rank.football.data.repository.FootballRepository
 import com.rank.football.util.Result
@@ -24,8 +21,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 
-enum class SearchTab { TEAMS, LEAGUES, MATCHES }
-
 /** Client-side match filter applied to search results. */
 enum class MatchSearchFilter { ALL, LIVE, TODAY, WEEK }
 
@@ -39,23 +34,11 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
-    private val _selectedTab = MutableStateFlow(SearchTab.TEAMS)
-    val selectedTab: StateFlow<SearchTab> = _selectedTab.asStateFlow()
-
     private val _matchFilter = MutableStateFlow(MatchSearchFilter.ALL)
     val matchFilter: StateFlow<MatchSearchFilter> = _matchFilter.asStateFlow()
 
-    private val _teams = MutableStateFlow<Result<List<TeamSearchItem>>>(Result.Success(emptyList()))
-    val teams: StateFlow<Result<List<TeamSearchItem>>> = _teams.asStateFlow()
-
-    private val _leagues = MutableStateFlow<Result<List<LeagueItem>>>(Result.Success(emptyList()))
-    val leagues: StateFlow<Result<List<LeagueItem>>> = _leagues.asStateFlow()
-
     private val _matches = MutableStateFlow<Result<List<FixtureItem>>>(Result.Success(emptyList()))
     val matches: StateFlow<Result<List<FixtureItem>>> = _matches.asStateFlow()
-
-    private val _trending = MutableStateFlow<List<String>>(emptyList())
-    val trending: StateFlow<List<String>> = _trending.asStateFlow()
 
     private val _aiSuggestions = MutableStateFlow<List<String>>(emptyList())
     val aiSuggestions: StateFlow<List<String>> = _aiSuggestions.asStateFlow()
@@ -67,8 +50,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     val recentSearches = OnboardingPreference.recentSearchesWithTimestamps(context)
 
-    private val exceptionHandler = CoroutineExceptionHandler { _, e ->
-        _teams.value = Result.Error(e.message ?: "Error")
+    private val exceptionHandler = CoroutineExceptionHandler { _, _ ->
+        _matches.value = Result.Error("Search failed")
     }
 
     init {
@@ -90,19 +73,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         _aiSuggestions.value = emptyList()
     }
 
-    /** Sets query from voice recognition result. */
-    fun setVoiceQuery(value: String) {
-        setQuery(value.trim())
-        if (value.trim().length >= 2) search(value.trim())
-    }
-
-    /** Switches the active search results tab. */
-    fun setTab(tab: SearchTab) {
-        _selectedTab.value = tab
-        val q = _query.value
-        if (q.length >= 2) search(q)
-    }
-
     /** Applies a client-side match filter to search results. */
     fun setMatchFilter(filter: MatchSearchFilter) {
         _matchFilter.value = filter
@@ -119,38 +89,20 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     private fun clearResults() {
-        _teams.value = Result.Success(emptyList())
-        _leagues.value = Result.Success(emptyList())
         _matches.value = Result.Success(emptyList())
         _aiSuggestions.value = emptyList()
     }
 
-    /** Runs search for the current tab and query. */
+    /** Runs match search for the query. */
     fun search(q: String) {
         viewModelScope.launch(exceptionHandler) {
             OnboardingPreference.addRecentSearch(context, q)
-            when (_selectedTab.value) {
-                SearchTab.TEAMS -> {
-                    _teams.value = Result.Loading
-                    val results = repository.searchTeams(q)
-                    _teams.value = Result.Success(results)
-                    if (results.isEmpty()) loadAiSuggestions(q)
-                }
-                SearchTab.LEAGUES -> {
-                    _leagues.value = Result.Loading
-                    val results = repository.searchLeagues(q)
-                    _leagues.value = Result.Success(results)
-                    if (results.isEmpty()) loadAiSuggestions(q)
-                }
-                SearchTab.MATCHES -> {
-                    _matches.value = Result.Loading
-                    (getApplication<Application>() as GoalStreamApp).syncStreamCatalog()
-                    lastMatchResults = streamRepository.filterStreamable(repository.searchFixtures(q))
-                    val results = applyMatchFilter(lastMatchResults)
-                    _matches.value = Result.Success(results)
-                    if (results.isEmpty()) loadAiSuggestions(q)
-                }
-            }
+            _matches.value = Result.Loading
+            (getApplication<Application>() as GoalStreamApp).syncStreamCatalog()
+            lastMatchResults = streamRepository.filterStreamable(repository.searchFixtures(q))
+            val results = applyMatchFilter(lastMatchResults)
+            _matches.value = Result.Success(results)
+            if (results.isEmpty()) loadAiSuggestions(q)
         }
     }
 

@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Watch Football Online Free</string>
+    <string name="app_name">Watch Football Free</string>
     <string name="nav_home">Nyumbani</string>
     <string name="nav_live">Moja kwa Moja</string>
     <string name="nav_fixtures">Mechi</string>
-    <string name="nav_leagues">Ligi</string>
-    <string name="home_title">Watch Football Online Free</string>
+    <string name="home_title">Watch Football Free</string>
     <string name="section_live_now">MOJA KWA MOJA</string>
     <string name="live_status">MOJA KWA MOJA</string>
-    <string name="section_recommended">🎯 Zilizochaguliwa Kwako</string>
-    <string name="consent_title">Karibu Watch Football Online Free</string>
+    <string name="consent_title">Karibu Watch Football Free</string>
     <string name="consent_accept">Kubali na Endelea</string>
 </resources>

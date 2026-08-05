@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Watch Football Online Free</string>
+    <string name="app_name">Watch Football Free</string>
     <string name="nav_home">الرئيسية</string>
     <string name="nav_live">مباشر</string>
     <string name="nav_fixtures">المباريات</string>
-    <string name="nav_leagues">الدوريات</string>
     <string name="live_status">مباشر</string>
-    <string name="section_recommended">🎯 مختار لك</string>
 </resources>

@@ -1,25 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Watch Football Online Free</string>
+    <string name="app_name">Watch Football Free</string>
 
     <!-- Navigation -->
     <string name="nav_home">Home</string>
     <string name="nav_live">Live</string>
     <string name="nav_fixtures">Fixtures</string>
-    <string name="nav_leagues">Leagues</string>
+    <string name="nav_settings">More</string>
 
     <!-- Home -->
-    <string name="home_title">Watch Football Online Free</string>
+    <string name="home_title">Watch Football Free</string>
     <string name="home_subtitle">Stream live matches</string>
     <string name="section_live_now">LIVE NOW</string>
     <string name="section_today_matches">TODAY\'S MATCHES</string>
     <string name="section_my_teams">MY TEAMS</string>
-    <string name="favorites_empty">Follow your teams — tap ♡ on any team</string>
     <string name="favorites_no_matches">No matches today for your teams</string>
     <string name="search">Search</string>
-    <string name="search_hint">Search teams, leagues, matches…</string>
-    <string name="search_tab_teams">Teams</string>
-    <string name="search_tab_leagues">Leagues</string>
+    <string name="search_hint">Search matches…</string>
     <string name="search_tab_matches">Matches</string>
     <string name="hero_watch">▶ WATCH</string>
     <string name="hero_cta_live">WATCH LIVE</string>
@@ -30,11 +27,20 @@
 
     <!-- Live -->
     <string name="live_empty">No live matches right now. Check Fixtures for upcoming.</string>
+    <string name="live_empty_title">No Live Matches</string>
+    <string name="live_empty_subtitle">The stadium is quiet right now. Check back at kick-off time or browse upcoming fixtures.</string>
+    <string name="live_empty_cta">View Fixtures</string>
+    <string name="live_up_next">Up Next Today</string>
     <string name="kickoff_soon">Kick-off soon!</string>
     <string name="ticker_no_events">Match just started — events will appear here</string>
 
     <!-- Fixtures -->
     <string name="fixtures_title">Fixtures</string>
+    <string name="fixtures_refresh">Refresh fixtures</string>
+    <string name="fixtures_empty_title">No Fixtures on %1$s</string>
+    <string name="fixtures_empty_subtitle">Looks like the players have the day off. Tap a day below to jump ahead.</string>
+    <string name="fixtures_empty_subtitle_none">No fixtures scheduled in the next month. Check back soon.</string>
+    <string name="fixtures_empty_jump_hint">Jump to a day with fixtures</string>
     <string name="fixtures_subtitle">Streamable matches by date</string>
     <string name="fixtures_filter_all">All</string>
     <string name="fixtures_filter_live">Live</string>
@@ -51,40 +57,18 @@
     <string name="cancel">Cancel</string>
     <string name="confirm">Confirm</string>
 
-    <!-- Leagues -->
-    <string name="leagues_title">Leagues</string>
-    <string name="leagues_subtitle">Browse leagues with streams</string>
-    <string name="leagues_search_hint">Search streamable leagues…</string>
-    <string name="leagues_stat_live">%1$d live streams</string>
-    <string name="leagues_stat_today">%1$d today</string>
-    <string name="leagues_live_badge">● %1$d LIVE</string>
-    <string name="leagues_today_badge">%1$d today</string>
-    <string name="leagues_no_streams">No streamable matches right now.</string>
-    <string name="leagues_catalog_missing">Streams not configured — add URLs in Firebase /streams or set STREAM_CATALOG_URL.</string>
-    <string name="leagues_tab_live">Live</string>
-    <string name="leagues_tab_today">Today</string>
-    <string name="leagues_tab_upcoming">Upcoming</string>
-    <string name="leagues_top_table">Top of the table</string>
-    <string name="leagues_view_standings">Full table</string>
-    <string name="leagues_season_label">Season %1$d</string>
-    <string name="leagues_stream_summary">%1$d live · %2$d today · %3$d upcoming</string>
-    <string name="streamable_empty_live">No live streams right now.</string>
-    <string name="streamable_empty_fixtures">Nothing to stream on this date.</string>
     <string name="empty_streams_title">Off-season break</string>
     <string name="empty_streams_home_body">There\'s nothing live or scheduled to stream today. Leagues may be on a break — streams will appear here when matchdays return.</string>
     <string name="empty_streams_live_body">No matches are streaming right now. During the off-season or between matchdays, live streams show up here at kick-off.</string>
     <string name="empty_streams_fixtures_body">Nothing to stream on this date. Try another day on the calendar, or check back when the season resumes.</string>
-    <string name="empty_streams_leagues_body">No leagues have streamable matches right now. This is normal during the off-season or international break.</string>
     <string name="empty_catalog_title">No streams available</string>
     <string name="empty_catalog_body">We don\'t have any matches ready to watch yet. Pull to refresh, or check back when streams are listed again.</string>
     <string name="empty_catalog_tip_refresh">Tap Refresh after kick-off times are published</string>
     <string name="empty_catalog_tip_later">Streams appear here as soon as they\'re added to the catalog</string>
     <string name="empty_catalog_tip_notify">Turn on match reminders in Settings for kick-off alerts</string>
     <string name="empty_streams_tip_fixtures">Swipe through dates in Fixtures for upcoming matchdays</string>
-    <string name="empty_streams_tip_leagues">Leagues tab shows streams when competitions return</string>
     <string name="empty_streams_tip_notify">Turn on match reminders in Settings so you never miss kick-off</string>
     <string name="empty_streams_browse_fixtures">Fixtures</string>
-    <string name="empty_streams_browse_leagues">Leagues</string>
     <string name="empty_streams_refresh">Refresh</string>
     <string name="upcoming_fixtures">Upcoming Fixtures</string>
 
@@ -116,24 +100,18 @@
     <!-- Errors -->
     <string name="error_no_connection">No connection. Tap to retry.</string>
     <string name="error_title">Something went wrong</string>
-    <string name="no_internet">You\'re offline — showing last cached fixtures &amp; standings</string>
+    <string name="no_internet">You\'re offline — showing last cached fixtures</string>
     <string name="chat_empty">Be the first to chat about this match.</string>
     <string name="chat_send_failed">Couldn\'t send message</string>
     <string name="retry">Retry</string>
     <string name="loading">Loading…</string>
 
-    <!-- Events -->
-    <string name="event_goal">⚽ %1$d\' %2$s (%3$s)</string>
-    <string name="event_yellow">🟨 %1$d\' %2$s (%3$s)</string>
-    <string name="event_red">🟥 %1$d\' %2$s (%3$s)</string>
-    <string name="event_substitution">🔄 %1$d\' %2$s (%3$s)</string>
-
     <!-- Onboarding -->
     <string name="skip">Skip</string>
     <string name="next">Next</string>
     <string name="get_started">Get Started</string>
-    <string name="onboarding_title">Welcome to Watch Football Online Free</string>
-    <string name="onboarding_body">Browse live matches, fixtures, and leagues — only games with streams appear here.</string>
+    <string name="onboarding_title">Welcome to Watch Football Free</string>
+    <string name="onboarding_body">Browse live matches and fixtures — only games with streams appear here.</string>
     <string name="live_title">LIVE NOW</string>
     <string name="live_subtitle">matches in progress</string>
 
@@ -142,12 +120,12 @@
     <string name="notification_channel_desc">Notifications for upcoming matches</string>
     <string name="notification_title">Match starting soon!</string>
     <string name="notification_body">%1$s vs %2$s kicks off in 15 minutes</string>
-    <string name="notification_reminder_title">⚽ Kick-off in 15 min!</string>
+    <string name="notification_reminder_title">Kick-off in 15 min!</string>
     <string name="notification_reminder_body">%1$s vs %2$s — Tap to watch</string>
 
     <!-- V3 Consent -->
-    <string name="consent_title">Welcome to Watch Football Online Free</string>
-    <string name="consent_body">Watch Football Online Free uses ads to stay free. We may use your data to show relevant ads.</string>
+    <string name="consent_title">Welcome to Watch Football Free</string>
+    <string name="consent_body">Watch Football Free uses ads to stay free. We may use your data to show relevant ads.</string>
     <string name="consent_accept">Accept &amp; Continue</string>
     <string name="consent_manage">Manage Preferences</string>
 
@@ -176,22 +154,22 @@
     <string name="settings_goal_alerts">Goal alerts</string>
     <string name="settings_favorite_only">Favourites only</string>
     <string name="settings_appearance">APPEARANCE</string>
+    <string name="settings_data">DATA &amp; PRIVACY</string>
     <string name="settings_language">App language</string>
     <string name="settings_language_value">English</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_theme_locked">Stadium Dark</string>
-    <string name="settings_account">ACCOUNT</string>
-    <string name="settings_display_name">Your display name: %1$s</string>
-    <string name="settings_clear_history">Clear watch history</string>
-    <string name="settings_clear_favorites">Clear favorites</string>
-    <string name="settings_clear_predictions">Clear prediction history</string>
-    <string name="settings_clear_confirm">This cannot be undone. Continue?</string>
+    <string name="settings_preferences">PREFERENCES</string>
+    <string name="settings_notifications_short">Notifications</string>
+    <string name="settings_dark_mode">Dark Mode</string>
+    <string name="settings_dark_mode_value">Always</string>
+    <string name="settings_app">APP</string>
     <string name="settings_about">ABOUT</string>
     <string name="settings_version">Version %1$s</string>
     <string name="settings_privacy">Privacy Policy</string>
-    <string name="settings_rate">Rate Watch Football Online Free ★★★★★</string>
-    <string name="settings_share">Share Watch Football Online Free</string>
-    <string name="settings_share_text">Watch football streams free on Watch Football Online Free!</string>
+    <string name="settings_rate">Rate Watch Football Free ★★★★★</string>
+    <string name="settings_share">Share Watch Football Free</string>
+    <string name="settings_share_text">Watch football streams free on Watch Football Free!</string>
     <string name="settings_debug">Debug Info</string>
 
     <!-- V3 Languages -->
@@ -202,11 +180,9 @@
     <string name="lang_portuguese">Portuguese</string>
 
     <!-- V3 Highlights -->
-    <string name="highlights_title">Highlights</string>
-    <string name="section_recommended">🎯 Picked for You</string>
     <string name="widget_tap_watch">TAP TO WATCH</string>
     <string name="widget_watch_now">Watch Now</string>
-    <string name="widget_live_header">Watch Football Online Free</string>
+    <string name="widget_live_header">Watch Football Free</string>
     <string name="widget_configure_title">Customize widget</string>
     <string name="widget_theme_label">Color theme</string>
     <string name="widget_max_matches_label">Max live matches</string>
@@ -219,22 +195,14 @@
     <string name="settings_sync">Cloud sync</string>
 
     <!-- V3 Predictor -->
-    <string name="predictor_title">⏸ HALF TIME — Make your prediction</string>
-    <string name="predictor_winner">Who wins the second half?</string>
-    <string name="predictor_score">Final score?</string>
-    <string name="predictor_submit">PREDICT &amp; EARN 50 PTS</string>
     <string name="draw">Draw</string>
-    <string name="quiz_title">Halftime Quiz</string>
-    <string name="streaks_title">Prediction Streaks</string>
-    <string name="streaks_points">Total points: %1$d</string>
-    <string name="streaks_correct">Record: %1$dW / %2$dL</string>
 
     <!-- V3 Notifications -->
     <string name="channel_goals">Goal Alerts</string>
     <string name="channel_results">Match Results</string>
     <string name="channel_playback">Playback</string>
-    <string name="notification_goal_title">⚽ GOAL!</string>
-    <string name="notification_start_title">🔴 LIVE NOW</string>
+    <string name="notification_goal_title">GOAL!</string>
+    <string name="notification_start_title">LIVE NOW</string>
     <string name="notification_result_title">Full Time</string>
 
     <!-- Match status -->
@@ -242,24 +210,8 @@
     <string name="status_ft">FT</string>
     <string name="status_upcoming">Upcoming</string>
 
-    <!-- V4 -->
-    <string name="nav_community">Community</string>
-    <string name="community_title">👥 Community</string>
-    <string name="community_vote">Vote</string>
-    <string name="community_rate">Rate this match</string>
-    <string name="community_discussion">Discussion</string>
-    <string name="community_post">Post</string>
-    <string name="coins_title">Coin Shop</string>
-    <string name="coins_daily">Daily bonus (+20)</string>
-    <string name="coins_remove_ads">Remove ads 1 hour (200)</string>
-    <string name="coins_unlock_hd">Unlock HD (150)</string>
-    <string name="standings_title">Standings</string>
-    <string name="standings_club">Club</string>
-    <string name="player_stats">Season Stats</string>
-    <string name="ai_commentary">AI Commentary</string>
-    <string name="search_voice">Voice search</string>
-    <string name="search_voice_prompt">Say a team, league, or match</string>
-    <string name="search_trending">Trending</string>
+    <!-- Search -->
+    <string name="search_matches_count">%1$d Matches</string>
     <string name="search_yesterday">Yesterday</string>
     <string name="search_earlier">Earlier</string>
     <string name="search_filter_all">All</string>
@@ -269,14 +221,6 @@
     <string name="search_ai_suggestions">Try these instead</string>
     <string name="search_ai_loading">Looking for better matches…</string>
     <string name="search_no_results">No results for that search.</string>
-    <string name="fixture_detail">Match Preview</string>
     <string name="revenue_stats">Revenue Stats</string>
     <string name="delete">Delete</string>
-    <string name="nav_news">News</string>
-    <string name="nav_fantasy">Fantasy</string>
-    <string name="nav_clips">Clips</string>
-    <string name="match_intelligence">Match Intelligence</string>
-    <string name="insights_title">Your Football Profile</string>
-    <string name="notification_tuner">Notification Tuner</string>
-    <string name="vault_title">Football Vault</string>
 </resources>

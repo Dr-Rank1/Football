@@ -12,7 +12,8 @@ import com.google.ai.client.generativeai.type.generationConfig
 /** Gemini client for search suggestions and lightweight AI helpers. */
 object GeminiClient {
 
-    private var rateLimiter: GeminiRateLimiter? = null
+    private val limiterRef = java.util.concurrent.atomic.AtomicReference<GeminiRateLimiter?>(null)
+    private val contextRef = java.util.concurrent.atomic.AtomicReference<Context?>(null)
 
     private val flashModel by lazy {
         GenerativeModel(
@@ -31,11 +32,19 @@ object GeminiClient {
 
     /** Initializes the rate limiter with application context. */
     fun init(context: Context) {
-        rateLimiter = GeminiRateLimiter(context.applicationContext)
+        contextRef.set(context.applicationContext)
     }
 
-    private suspend fun limiter(): GeminiRateLimiter =
-        rateLimiter ?: throw IllegalStateException("GeminiClient.init() not called")
+    private suspend fun limiter(): GeminiRateLimiter {
+        limiterRef.get()?.let { return it }
+        return synchronized(this) {
+            limiterRef.get() ?: run {
+                val context = contextRef.get()
+                    ?: throw IllegalStateException("GeminiClient.init() not called")
+                GeminiRateLimiter(context).also { limiterRef.set(it) }
+            }
+        }
+    }
 
     /** Returns JSON search-term suggestions for a failed football search query. */
     suspend fun suggestSearchTerms(query: String): String {

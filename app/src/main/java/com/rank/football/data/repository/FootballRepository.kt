@@ -19,6 +19,9 @@ import com.rank.football.data.model.TeamStatisticsItem
 import com.rank.football.data.model.TeamSearchItem
 import com.rank.football.util.NetworkMonitor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -47,11 +50,15 @@ class FootballRepository(context: Context) {
     /** Returns World Cup fixtures for the current and previous season years. */
     suspend fun getWorldCupFixtures(): List<FixtureItem> = withContext(Dispatchers.IO) {
         val year = LocalDate.now().year
-        (listOf(year, year - 1)).flatMap { season ->
-            fetchFixtures("league_${WORLD_CUP_LEAGUE_ID}_$season") {
-                api.getFixturesByLeague(WORLD_CUP_LEAGUE_ID, season).response
-            }
-        }.distinctBy { it.fixture.id }
+        coroutineScope {
+            listOf(year, year - 1).map { season ->
+                async {
+                    fetchFixtures("league_${WORLD_CUP_LEAGUE_ID}_$season") {
+                        api.getFixturesByLeague(WORLD_CUP_LEAGUE_ID, season).response
+                    }
+                }
+            }.awaitAll()
+        }.flatten().distinctBy { it.fixture.id }
     }
 
     suspend fun getFixturesByLeague(leagueId: Int, season: Int): List<FixtureItem> =
@@ -94,8 +101,11 @@ class FootballRepository(context: Context) {
     suspend fun getFixtureById(fixtureId: Int): FixtureItem? = withContext(Dispatchers.IO) {
         val today = LocalDate.now()
         val dates = (-1..1).map { today.plusDays(it.toLong()) }
-        for (date in dates) {
-            val match = getFixturesByDate(date).find { it.fixture.id == fixtureId }
+        val byDate = coroutineScope {
+            dates.map { date -> async { getFixturesByDate(date) } }.awaitAll()
+        }
+        for (index in dates.indices) {
+            val match = byDate[index].find { it.fixture.id == fixtureId }
             if (match != null) return@withContext match
         }
         getLiveFixtures().find { it.fixture.id == fixtureId }
@@ -104,12 +114,14 @@ class FootballRepository(context: Context) {
     suspend fun searchFixtures(query: String): List<FixtureItem> = withContext(Dispatchers.IO) {
         val q = query.lowercase()
         val dates = (-3..3).map { LocalDate.now().plusDays(it.toLong()) }
-        dates.flatMap { getFixturesByDate(it) }
-            .filter {
+        coroutineScope {
+            dates.map { date -> async { getFixturesByDate(date) } }.awaitAll()
+        }.flatMap { list ->
+            list.filter {
                 it.teams.home.name.lowercase().contains(q) ||
                     it.teams.away.name.lowercase().contains(q)
             }
-            .distinctBy { it.fixture.id }
+        }.distinctBy { it.fixture.id }
     }
 
     suspend fun getFixturesForTeamIds(teamIds: Set<Int>): List<FixtureItem> =

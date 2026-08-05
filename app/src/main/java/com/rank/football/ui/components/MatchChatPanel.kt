@@ -114,6 +114,7 @@ fun MatchChatPanel(
         error?.let {
             Text(it, color = PitchGreen, modifier = Modifier.padding(top = 4.dp))
         }
+        val sendFailedText = stringResource(R.string.chat_send_failed)
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
@@ -142,7 +143,7 @@ fun MatchChatPanel(
                             error = null
                         } else {
                             error = result.exceptionOrNull()?.message
-                                ?: context.getString(R.string.chat_send_failed)
+                                ?: sendFailedText
                         }
                     }
                 }

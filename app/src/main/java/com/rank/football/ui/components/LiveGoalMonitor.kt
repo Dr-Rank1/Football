@@ -32,7 +32,7 @@ object LiveMatchBus {
 @Composable
 fun LiveGoalMonitor(enabled: Boolean = true) {
     val context = LocalContext.current
-    val app = context.applicationContext as GoalStreamApp
+    val app = context.applicationContext as? GoalStreamApp ?: return
     val repository = remember { FootballRepository(context) }
     val favoritesRepository = remember { FavoritesRepository(AppDatabase.getInstance(context)) }
     val previousScores = remember { mutableMapOf<Int, Pair<Int, Int>>() }
@@ -60,7 +60,8 @@ fun LiveGoalMonitor(enabled: Boolean = true) {
                     }
                     previousScores.keys.retainAll(live.map { it.fixture.id }.toSet())
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.w("LiveGoalMonitor", "Poll failed", e)
             }
             delay(45_000)
         }

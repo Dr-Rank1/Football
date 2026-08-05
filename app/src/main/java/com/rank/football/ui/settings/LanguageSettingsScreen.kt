@@ -30,14 +30,14 @@ import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.TextWhite
 import kotlinx.coroutines.launch
 
-data class AppLanguage(val tag: String, val flag: String, val labelRes: Int)
+data class AppLanguage(val tag: String, val labelRes: Int)
 
 private val languages = listOf(
-    AppLanguage("en", "🇬🇧", R.string.lang_english),
-    AppLanguage("sw", "🇰🇪", R.string.lang_swahili),
-    AppLanguage("fr", "🇫🇷", R.string.lang_french),
-    AppLanguage("ar", "🇸🇦", R.string.lang_arabic),
-    AppLanguage("pt", "🇵🇹", R.string.lang_portuguese)
+    AppLanguage("en", R.string.lang_english),
+    AppLanguage("sw", R.string.lang_swahili),
+    AppLanguage("fr", R.string.lang_french),
+    AppLanguage("ar", R.string.lang_arabic),
+    AppLanguage("pt", R.string.lang_portuguese)
 )
 
 /** Lists supported languages and applies locale via AppCompatDelegate. */
@@ -77,7 +77,6 @@ fun LanguageSettingsScreen(onBack: () -> Unit) {
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(lang.flag, modifier = Modifier.padding(end = 12.dp))
                     Text(stringResource(lang.labelRes), color = TextWhite)
                 }
             }

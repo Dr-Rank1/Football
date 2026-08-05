@@ -23,8 +23,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,7 +42,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -56,17 +54,14 @@ import com.rank.football.data.model.isUpcoming
 import com.rank.football.data.repository.FavoritesRepository
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.repository.StreamCatalogStatus
-import com.rank.football.ui.components.AppScreenHeader
 import com.rank.football.ui.components.BannerAdView
+import com.rank.football.ui.components.EmptyQuickJump
+import com.rank.football.ui.components.EmptyStadium
 import com.rank.football.ui.components.ErrorState
-import com.rank.football.ui.components.FilterPill
-import com.rank.football.ui.components.FilterPillRow
 import com.rank.football.ui.components.LeagueHeader
 import com.rank.football.ui.components.LoadingShimmerList
 import com.rank.football.ui.components.MatchCard
-import com.rank.football.ui.components.NoStreamsContext
-import com.rank.football.ui.components.NoStreamsEmptyState
-import com.rank.football.ui.components.SummaryCard
+import com.rank.football.ui.components.ProtoScreenTitle
 import com.rank.football.ui.components.UpcomingMatchSheet
 import com.rank.football.ui.theme.CardDark
 import com.rank.football.ui.theme.LiveRed
@@ -78,7 +73,6 @@ import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.CalendarDayUi
-import com.rank.football.viewmodel.FixtureDayFilter
 import com.rank.football.viewmodel.FixturesViewModel
 import java.time.LocalDate
 
@@ -86,14 +80,11 @@ import java.time.LocalDate
 @Composable
 fun FixturesScreen(
     onMatchClick: (Int) -> Unit,
-    onBrowseLeagues: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: FixturesViewModel = viewModel()
 ) {
     val selectedDate by viewModel.selectedDate.collectAsState()
     val calendarDays by viewModel.calendarDays.collectAsState()
-    val daySummary by viewModel.daySummary.collectAsState()
-    val dayFilter by viewModel.dayFilter.collectAsState()
     val fixtures by viewModel.fixtures.collectAsState()
     val context = LocalContext.current
     val app = context.applicationContext as GoalStreamApp
@@ -110,39 +101,34 @@ fun FixturesScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        AppScreenHeader(
-            title = stringResource(R.string.fixtures_title),
-            subtitle = stringResource(R.string.fixtures_subtitle),
-            trailing = {
-                if (selectedDate != LocalDate.now()) {
-                    TextButton(onClick = viewModel::goToToday) {
-                        Text(stringResource(R.string.today), color = PitchGreen)
-                    }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ProtoScreenTitle(
+                title = stringResource(R.string.fixtures_title),
+                modifier = Modifier.weight(1f)
+            )
+            if (selectedDate != LocalDate.now()) {
+                TextButton(onClick = viewModel::goToToday) {
+                    Text(stringResource(R.string.today), color = PitchGreen)
                 }
             }
-        )
-
-        FixturesWeekNav(
-            monthLabel = viewModel.monthYearLabel(),
-            onPrevWeek = { viewModel.shiftWeek(-1) },
-            onNextWeek = { viewModel.shiftWeek(1) }
-        )
-
-        SummaryCard(
-            title = viewModel.selectedDateLabel(selectedDate),
-            subtitle = stringResource(
-                R.string.fixtures_day_summary,
-                daySummary.streamableCount,
-                daySummary.liveCount,
-                daySummary.upcomingCount
-            ),
-            accent = daySummary.liveCount > 0
-        )
+            IconButton(onClick = viewModel::refreshCalendar) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = stringResource(R.string.fixtures_refresh),
+                    tint = TextGrey
+                )
+            }
+        }
 
         LazyRow(
             state = calendarListState,
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             items(calendarDays, key = { it.date.toString() }) { day ->
@@ -152,24 +138,6 @@ fun FixturesScreen(
                     onClick = { viewModel.selectDate(day.date) }
                 )
             }
-        }
-
-        FilterPillRow {
-            FilterPill(
-                label = stringResource(R.string.fixtures_filter_all),
-                selected = dayFilter == FixtureDayFilter.ALL,
-                onClick = { viewModel.setDayFilter(FixtureDayFilter.ALL) }
-            )
-            FilterPill(
-                label = stringResource(R.string.fixtures_filter_live),
-                selected = dayFilter == FixtureDayFilter.LIVE,
-                onClick = { viewModel.setDayFilter(FixtureDayFilter.LIVE) }
-            )
-            FilterPill(
-                label = stringResource(R.string.fixtures_filter_upcoming),
-                selected = dayFilter == FixtureDayFilter.UPCOMING,
-                onClick = { viewModel.setDayFilter(FixtureDayFilter.UPCOMING) }
-            )
         }
 
         when (val result = fixtures) {
@@ -184,15 +152,31 @@ fun FixturesScreen(
                     if (catalogPending) {
                         LoadingShimmerList(modifier = Modifier.weight(1f))
                     } else {
-                    NoStreamsEmptyState(
-                        context = NoStreamsContext.FIXTURES,
-                        catalogHasStreams = catalogHasStreams,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(top = 8.dp),
-                        onBrowseLeagues = onBrowseLeagues,
-                        onRefresh = { viewModel.refreshCalendar() }
-                    )
+                        val nextDays = calendarDays
+                            .filter { it.date > selectedDate && it.streamableCount > 0 }
+                            .take(3)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            EmptyStadium(
+                                title = stringResource(R.string.fixtures_empty_title, viewModel.selectedDateLabel(selectedDate)),
+                                subtitle = if (nextDays.isEmpty()) {
+                                    stringResource(R.string.fixtures_empty_subtitle_none)
+                                } else {
+                                    stringResource(R.string.fixtures_empty_subtitle)
+                                },
+                                quickJumps = nextDays.map { day ->
+                                    EmptyQuickJump(
+                                        label = "${day.weekdayShort} ${day.dayNumber} · ${day.streamableCount}",
+                                        onClick = { viewModel.selectDate(day.date) }
+                                    )
+                                },
+                                quickJumpsHint = stringResource(R.string.fixtures_empty_jump_hint)
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -204,7 +188,8 @@ fun FixturesScreen(
                                 LeagueHeader(
                                     leagueName = group.leagueName,
                                     leagueLogo = group.leagueLogo,
-                                    country = group.country
+                                    country = group.country,
+                                    matchCount = group.fixtures.size
                                 )
                             }
                             items(group.fixtures, key = { it.fixture.id }) { fixture ->
@@ -226,7 +211,7 @@ fun FixturesScreen(
             }
         }
 
-        BannerAdView(adUnitId = AdConstants.BANNER_TEST_UNIT_ID)
+        BannerAdView(adUnitId = AdConstants.BANNER_UNIT_ID)
     }
 
     reminderFixture?.let { fixture ->
@@ -234,35 +219,6 @@ fun FixturesScreen(
             fixture = fixture,
             onDismiss = { reminderFixture = null }
         )
-    }
-}
-
-@Composable
-private fun FixturesWeekNav(
-    monthLabel: String,
-    onPrevWeek: () -> Unit,
-    onNextWeek: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onPrevWeek) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = null, tint = PitchGreen)
-        }
-        Text(
-            text = monthLabel,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.titleMedium,
-            color = TextWhite,
-            fontWeight = FontWeight.SemiBold
-        )
-        IconButton(onClick = onNextWeek) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = PitchGreen)
-        }
     }
 }
 

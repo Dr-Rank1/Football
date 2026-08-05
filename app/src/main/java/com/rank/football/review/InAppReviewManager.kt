@@ -6,15 +6,18 @@ import com.rank.football.data.local.AppPreferences
 import com.google.android.play.core.review.ReviewManagerFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /** Triggers Google Play in-app review once after engagement thresholds are met. */
 object InAppReviewManager {
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
     /** Requests in-app review if user watched 3+ matches and app is 3+ days old. */
     fun maybeRequestReview(activity: Activity) {
-        CoroutineScope(Dispatchers.Main).launch {
+        scope.launch {
             val context = activity.applicationContext
             if (AppPreferences.reviewShown(context).first()) return@launch
             val watchCount = AppDatabase.getInstance(context).watchHistoryDao().count()
@@ -26,7 +29,7 @@ object InAppReviewManager {
             manager.requestReviewFlow().addOnCompleteListener { task ->
                 if (task.isSuccessful) {
                     manager.launchReviewFlow(activity, task.result)
-                    CoroutineScope(Dispatchers.IO).launch {
+                    scope.launch(Dispatchers.IO) {
                         AppPreferences.setReviewShown(context)
                     }
                 }

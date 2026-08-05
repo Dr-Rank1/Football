@@ -8,6 +8,7 @@ import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
 import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
+import com.rank.football.ads.AdConstants
 
 /** Manages preloaded rewarded interstitial ads for premium content unlocks. */
 class RewardedInterstitialManager(private val context: Context) {
@@ -20,7 +21,7 @@ class RewardedInterstitialManager(private val context: Context) {
     fun loadAd() {
         RewardedInterstitialAd.load(
             context,
-            TEST_UNIT_ID,
+            AdConstants.REWARDED_INTERSTITIAL_UNIT_ID,
             AdRequest.Builder().build(),
             object : RewardedInterstitialAdLoadCallback() {
                 override fun onAdLoaded(loaded: RewardedInterstitialAd) {
@@ -61,9 +62,5 @@ class RewardedInterstitialManager(private val context: Context) {
         current.show(activity) { reward ->
             onReward(100)
         }
-    }
-
-    companion object {
-        const val TEST_UNIT_ID = "ca-app-pub-3940256099942544/5354046379"
     }
 }

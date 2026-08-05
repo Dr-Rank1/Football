@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import com.rank.football.R
 import com.rank.football.ui.theme.GoalStreamTheme
 import com.rank.football.ui.theme.PitchGreen
@@ -43,7 +45,6 @@ import com.rank.football.ui.theme.TextWhite
 import com.rank.football.workers.WidgetUpdateWorker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /** Configuration screen shown when a user adds the GoalStream home widget. */
 class WidgetConfigureActivity : ComponentActivity() {
@@ -62,36 +63,47 @@ class WidgetConfigureActivity : ComponentActivity() {
             return
         }
 
-        val initialTheme = runBlocking { WidgetPreferenceStore.theme(this@WidgetConfigureActivity).first() }
-        val initialMax = runBlocking { WidgetPreferenceStore.maxMatches(this@WidgetConfigureActivity).first() }
-        val initialLeague = runBlocking { WidgetPreferenceStore.leagueFilter(this@WidgetConfigureActivity).first() }
-
         setContent {
             GoalStreamTheme {
-                WidgetConfigureScreen(
-                    initialTheme = initialTheme,
-                    initialMaxMatches = initialMax,
-                    initialLeagueFilter = initialLeague,
-                    onCancel = { finish() },
-                    onSave = { theme, maxMatches, leagueFilter ->
-                        saveAndFinish(theme, maxMatches, leagueFilter)
-                    }
-                )
+                var ready by remember { mutableStateOf(false) }
+                var initialTheme by remember { mutableStateOf("stadium_dark") }
+                var initialMaxMatches by remember { mutableStateOf(6) }
+                var initialLeagueFilter by remember { mutableStateOf("") }
+
+                LaunchedEffect(Unit) {
+                    initialTheme = WidgetPreferenceStore.theme(this@WidgetConfigureActivity).first()
+                    initialMaxMatches = WidgetPreferenceStore.maxMatches(this@WidgetConfigureActivity).first()
+                    initialLeagueFilter = WidgetPreferenceStore.leagueFilter(this@WidgetConfigureActivity).first()
+                    ready = true
+                }
+
+                if (ready) {
+                    WidgetConfigureScreen(
+                        initialTheme = initialTheme,
+                        initialMaxMatches = initialMaxMatches,
+                        initialLeagueFilter = initialLeagueFilter,
+                        onCancel = { finish() },
+                        onSave = { theme, maxMatches, leagueFilter ->
+                            saveAndFinish(theme, maxMatches, leagueFilter)
+                        }
+                    )
+                }
             }
         }
     }
 
     /** Persists widget preferences and returns success to the widget host. */
     private fun saveAndFinish(theme: String, maxMatches: Int, leagueFilter: String) {
-        runBlocking {
+        val scope = lifecycleScope
+        scope.launch {
             WidgetPreferenceStore.setTheme(this@WidgetConfigureActivity, theme)
             WidgetPreferenceStore.setMaxMatches(this@WidgetConfigureActivity, maxMatches)
             WidgetPreferenceStore.setLeagueFilter(this@WidgetConfigureActivity, leagueFilter.trim())
+            WidgetUpdateWorker.enqueue(this@WidgetConfigureActivity)
+            val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            setResult(RESULT_OK, result)
+            finish()
         }
-        WidgetUpdateWorker.enqueue(this)
-        val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-        setResult(RESULT_OK, result)
-        finish()
     }
 }
 

@@ -1,10 +1,7 @@
 package com.rank.football.ui.screen
 
-import androidx.compose.material3.IconButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,64 +10,55 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.rank.football.ui.theme.TextWhite
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.rank.football.R
 import com.rank.football.data.local.AppDatabase
 import com.rank.football.data.local.RecentSearchEntry
 import com.rank.football.data.repository.FavoritesRepository
-import com.rank.football.ui.components.FavoriteButton
+import com.rank.football.ui.components.EmptySearch
+import com.rank.football.ui.components.EmptyStadium
 import com.rank.football.ui.components.FilterPill
 import com.rank.football.ui.components.FilterPillRow
 import com.rank.football.ui.components.LoadingShimmerList
 import com.rank.football.ui.components.MatchCard
-import com.rank.football.ui.theme.CardDark
-import com.rank.football.ui.theme.PitchGreen
+import com.rank.football.ui.components.ProtoSearchBar
+import com.rank.football.ui.theme.DmSans
 import com.rank.football.ui.theme.StadiumBlack
-import com.rank.football.ui.theme.SurfaceDark
 import com.rank.football.ui.theme.TextGrey
+import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 import com.rank.football.viewmodel.MatchSearchFilter
-import com.rank.football.viewmodel.SearchTab
 import com.rank.football.viewmodel.SearchViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     onMatchClick: (Int) -> Unit,
@@ -80,16 +68,11 @@ fun SearchScreen(
     val context = LocalContext.current
     val favoritesRepository = remember { FavoritesRepository(AppDatabase.getInstance(context)) }
     val query by viewModel.query.collectAsState()
-    val selectedTab by viewModel.selectedTab.collectAsState()
     val matchFilter by viewModel.matchFilter.collectAsState()
-    val teams by viewModel.teams.collectAsState()
-    val leagues by viewModel.leagues.collectAsState()
     val matches by viewModel.matches.collectAsState()
     val recentSearches by viewModel.recentSearches.collectAsState(initial = emptyList())
-    val trending by viewModel.trending.collectAsState()
     val aiSuggestions by viewModel.aiSuggestions.collectAsState()
     val loadingSuggestions by viewModel.loadingSuggestions.collectAsState()
-    var active by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
@@ -105,38 +88,24 @@ fun SearchScreen(
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = TextWhite)
             }
-            SearchBar(
-                query = query,
-                onQueryChange = { viewModel.setQuery(it) },
-                onSearch = { viewModel.search(it) },
-                active = active,
-                onActiveChange = { active = it },
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = PitchGreen)
-                },
+            ProtoSearchBar(
+                hint = stringResource(R.string.search_hint),
+                value = query,
+                onValueChange = { viewModel.setQuery(it) },
+                onClear = { viewModel.setQuery("") },
+                onSearchSubmit = { if (query.length >= 2) viewModel.search(query) },
+                autoFocus = true,
                 modifier = Modifier.weight(1f)
-            ) {}
+            )
         }
 
         if (query.isEmpty()) {
-            if (trending.isNotEmpty()) {
-                Text(
-                    stringResource(R.string.search_trending),
-                    color = TextGrey,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp)) {
-                    items(trending) { term ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { viewModel.setQuery(term); viewModel.search(term) },
-                            label = { Text(term) },
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                    }
+            EmptySearch(
+                onSuggestion = { term ->
+                    viewModel.setQuery(term)
+                    viewModel.search(term)
                 }
-            }
+            )
             GroupedRecentSearches(
                 entries = recentSearches,
                 onSelect = { viewModel.setQuery(it) },
@@ -144,7 +113,7 @@ fun SearchScreen(
             )
         }
 
-        if (selectedTab == SearchTab.MATCHES) {
+        if (query.isNotBlank()) {
             FilterPillRow {
                 MatchSearchFilter.entries.forEach { filter ->
                     FilterPill(
@@ -161,120 +130,51 @@ fun SearchScreen(
             }
         }
 
-        TabRow(
-            selectedTabIndex = selectedTab.ordinal,
-            containerColor = StadiumBlack,
-            contentColor = PitchGreen
-        ) {
-            Tab(
-                selected = selectedTab == SearchTab.TEAMS,
-                onClick = { viewModel.setTab(SearchTab.TEAMS) },
-                text = { Text(stringResource(R.string.search_tab_teams)) }
-            )
-            Tab(
-                selected = selectedTab == SearchTab.LEAGUES,
-                onClick = { viewModel.setTab(SearchTab.LEAGUES) },
-                text = { Text(stringResource(R.string.search_tab_leagues)) }
-            )
-            Tab(
-                selected = selectedTab == SearchTab.MATCHES,
-                onClick = { viewModel.setTab(SearchTab.MATCHES) },
-                text = { Text(stringResource(R.string.search_tab_matches)) }
-            )
-        }
-
-
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            when (selectedTab) {
-                SearchTab.TEAMS -> when (val result = teams) {
-                    is Result.Loading -> item { LoadingShimmerList() }
-                    is Result.Success -> {
-                        if (result.data.isEmpty() && query.length >= 2) {
+            when (val result = matches) {
+                is Result.Loading -> item { LoadingShimmerList() }
+                is Result.Success -> {
+                    if (result.data.isEmpty() && query.length >= 2) {
+                        item {
+                            AiSuggestionsBlock(
+                                loading = loadingSuggestions,
+                                suggestions = aiSuggestions,
+                                onPick = { term ->
+                                    viewModel.setQuery(term)
+                                    viewModel.search(term)
+                                }
+                            )
+                        }
+                        item {
+                            EmptyStadium(
+                                title = "No Matches Found",
+                                subtitle = stringResource(R.string.search_no_results),
+                                cta = "Clear Search",
+                                onCta = { viewModel.setQuery(""); viewModel.search("") }
+                            )
+                        }
+                    } else {
+                        if (result.data.isNotEmpty() && query.isNotBlank()) {
                             item {
-                                AiSuggestionsBlock(
-                                    loading = loadingSuggestions,
-                                    suggestions = aiSuggestions,
-                                    onPick = { term ->
-                                        viewModel.setQuery(term)
-                                        viewModel.search(term)
-                                    }
-                                )
-                            }
-                        } else {
-                            items(result.data) { item ->
-                                SearchResultRow(
-                                    logo = item.team.logo,
-                                    title = item.team.name,
-                                    subtitle = item.venue?.city,
-                                    trailing = {
-                                        FavoriteButton(
-                                            teamId = item.team.id,
-                                            teamName = item.team.name,
-                                            teamLogo = item.team.logo,
-                                            leagueId = 0,
-                                            leagueName = item.venue?.city ?: "",
-                                            favoritesRepository = favoritesRepository,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
+                                Text(
+                                    text = stringResource(R.string.search_matches_count, result.data.size),
+                                    color = TextGrey,
+                                    fontFamily = DmSans,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                                 )
                             }
                         }
-                    }
-                    is Result.Error -> item { Text(result.message, color = TextWhite) }
-                }
-                SearchTab.LEAGUES -> when (val result = leagues) {
-                    is Result.Loading -> item { LoadingShimmerList() }
-                    is Result.Success -> {
-                        if (result.data.isEmpty() && query.length >= 2) {
-                            item {
-                                AiSuggestionsBlock(
-                                    loading = loadingSuggestions,
-                                    suggestions = aiSuggestions,
-                                    onPick = { term ->
-                                        viewModel.setQuery(term)
-                                        viewModel.search(term)
-                                    }
-                                )
-                            }
-                        } else {
-                            items(result.data) { item ->
-                                SearchResultRow(
-                                    logo = item.league.logo,
-                                    title = item.league.name,
-                                    subtitle = item.country?.name
-                                )
-                            }
+                        items(result.data, key = { it.fixture.id }) { fixture ->
+                            MatchCard(
+                                fixture = fixture,
+                                onClick = { onMatchClick(fixture.fixture.id) },
+                                favoritesRepository = favoritesRepository
+                            )
                         }
                     }
-                    is Result.Error -> item { Text(result.message, color = TextWhite) }
                 }
-                SearchTab.MATCHES -> when (val result = matches) {
-                    is Result.Loading -> item { LoadingShimmerList() }
-                    is Result.Success -> {
-                        if (result.data.isEmpty() && query.length >= 2) {
-                            item {
-                                AiSuggestionsBlock(
-                                    loading = loadingSuggestions,
-                                    suggestions = aiSuggestions,
-                                    onPick = { term ->
-                                        viewModel.setQuery(term)
-                                        viewModel.search(term)
-                                    }
-                                )
-                            }
-                        } else {
-                            items(result.data, key = { it.fixture.id }) { fixture ->
-                                MatchCard(
-                                    fixture = fixture,
-                                    onClick = { onMatchClick(fixture.fixture.id) },
-                                    favoritesRepository = favoritesRepository
-                                )
-                            }
-                        }
-                    }
-                    is Result.Error -> item { Text(result.message, color = TextWhite) }
-                }
+                is Result.Error -> item { Text(result.message, color = TextWhite) }
             }
         }
     }
@@ -297,7 +197,7 @@ private fun AiSuggestionsBlock(
             loading -> {
                 Text(
                     text = stringResource(R.string.search_ai_loading),
-                    color = PitchGreen,
+                    color = com.rank.football.ui.theme.PitchGreen,
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -310,11 +210,11 @@ private fun AiSuggestionsBlock(
                     style = MaterialTheme.typography.labelMedium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
-                LazyRow(
+                Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(end = 8.dp)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    items(suggestions) { term ->
+                    suggestions.take(3).forEach { term ->
                         FilterChip(
                             selected = false,
                             onClick = { onPick(term) },
@@ -386,40 +286,5 @@ private fun GroupedRecentSearches(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SearchResultRow(
-    logo: String?,
-    title: String,
-    subtitle: String?,
-    trailing: @Composable (() -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(CardDark)
-            .border(1.dp, SurfaceDark, RoundedCornerShape(14.dp))
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = logo,
-            contentDescription = title,
-            modifier = Modifier
-                .size(40.dp)
-                .padding(end = 12.dp),
-            contentScale = ContentScale.Fit
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextWhite, style = MaterialTheme.typography.bodyMedium)
-            subtitle?.let {
-                Text(it, color = PitchGreen, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-        trailing?.invoke()
     }
 }
