@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.rank.football.viewmodel
 
 import android.app.Application
@@ -34,11 +36,12 @@ import com.rank.football.util.NetworkMonitor
 import com.rank.football.util.NetworkType
 import com.rank.football.util.Result
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 sealed class PlayerState {
@@ -49,6 +52,7 @@ sealed class PlayerState {
     data object AllSourcesExhausted : PlayerState()
 }
 
+@OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlayerViewModel(
     application: Application,
     private val savedStateHandle: SavedStateHandle
@@ -133,6 +137,9 @@ class PlayerViewModel(
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         Log.e(TAG, "Coroutine error", throwable)
     }
+
+    /** App-scoped IO scope for the final watch-history write in [onCleared]. */
+    private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
         val savedPosition = savedStateHandle.get<Long>("playbackPosition") ?: 0L
@@ -395,7 +402,7 @@ class PlayerViewModel(
                 playCurrentSource()
             } catch (e: Exception) {
                 Log.e(TAG, "Fallback play failed", e)
-                handlePlaybackError()
+                _playerState.value = PlayerState.AllSourcesExhausted
             }
         } else {
             _playerState.value = PlayerState.AllSourcesExhausted
@@ -485,7 +492,7 @@ class PlayerViewModel(
     override fun onCleared() {
         savePlaybackPosition()
         val duration = ((System.currentTimeMillis() - watchStartTime) / 1000).toInt()
-        CoroutineScope(Dispatchers.IO).launch {
+        ioScope.launch {
             try {
                 database.watchHistoryDao().updateDuration(fixtureId, duration)
             } catch (e: Exception) {

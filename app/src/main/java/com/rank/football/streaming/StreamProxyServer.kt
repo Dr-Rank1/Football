@@ -33,6 +33,12 @@ class StreamProxyServer(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop stream proxy", e)
         }
+        try {
+            client.connectionPool.evictAll()
+            client.dispatcher.executorService.shutdown()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to shut down proxy client", e)
+        }
     }
 
     /** Builds a localhost proxy URL for the given remote stream URL. */
@@ -53,9 +59,12 @@ class StreamProxyServer(
                 .header("User-Agent", "GoalStream/4.0 Android")
                 .build()
             val response = client.newCall(request).execute()
-            val body = response.body ?: return newFixedLengthResponse(
-                Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Empty body"
-            )
+            val body = response.body ?: run {
+                response.close()
+                return newFixedLengthResponse(
+                    Response.Status.INTERNAL_ERROR, MIME_PLAINTEXT, "Empty body"
+                )
+            }
             val mime = response.header("Content-Type") ?: "application/octet-stream"
             newChunkedResponse(
                 Response.Status.lookup(response.code),

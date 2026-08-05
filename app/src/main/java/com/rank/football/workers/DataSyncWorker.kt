@@ -22,7 +22,7 @@ class DataSyncWorker(context: Context, params: WorkerParameters) : CoroutineWork
 
     override suspend fun doWork(): Result {
         return try {
-            val app = applicationContext as GoalStreamApp
+            val app = applicationContext as? GoalStreamApp ?: return Result.failure()
             app.syncStreamCatalog()
             val streamRepository = app.streamRepository
             val repo = FootballRepository(applicationContext)

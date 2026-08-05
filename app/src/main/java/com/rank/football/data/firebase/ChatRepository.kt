@@ -56,7 +56,8 @@ class ChatRepository(private val context: Context) {
             "timestamp" to now,
             "reaction" to ""
         )
-        database.child("chats").child(fixtureId.toString()).child("messages").child(key).setValue(msg)
+        database.child("chats").child(fixtureId.toString()).child("messages").child(key)
+            .setValue(msg).await()
         lastSentAt = now
         return Result.success(Unit)
     }

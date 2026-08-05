@@ -14,8 +14,11 @@ class PipActionsReceiver : BroadcastReceiver() {
 
 /** Holds a callback for PiP actions from the active WatchScreen session. */
 object PipActionHandler {
+    @Volatile
     var onRewind: (() -> Unit)? = null
+    @Volatile
     var onPlayPause: (() -> Unit)? = null
+    @Volatile
     var onFastForward: (() -> Unit)? = null
 
     /** Dispatches a PiP action string to the active player callbacks. */

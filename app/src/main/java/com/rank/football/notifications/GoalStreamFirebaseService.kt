@@ -40,14 +40,13 @@ class GoalStreamFirebaseService : FirebaseMessagingService() {
             "goal" -> NotificationHelper.showGoalNotification(
                 this,
                 fixtureId,
-                "⚽ ${data["scorerName"]} — ${data["score"]} (${data["minute"]}')"
+                "GOAL ${data["scorerName"]} — ${data["score"]} (${data["minute"]}')"
             )
             "starting" -> NotificationHelper.showMatchStartNotification(
                 this,
                 fixtureId,
-                "🔴 ${data["homeTeam"]} vs ${data["awayTeam"]}"
-            )
-            "result" -> NotificationHelper.showResultNotification(
+                "LIVE ${data["homeTeam"]} vs ${data["awayTeam"]}"
+            )            "result" -> NotificationHelper.showResultNotification(
                 this,
                 fixtureId,
                 "FT: ${data["homeTeam"]} ${data["score"]} ${data["awayTeam"]}"
@@ -56,6 +55,6 @@ class GoalStreamFirebaseService : FirebaseMessagingService() {
     }
 
     override fun onNewToken(token: String) {
-        Log.d("GoalStream_FCM", "New token: $token")
+        Log.d("GoalStream_FCM", "New FCM token registered (${token.length} chars)")
     }
 }

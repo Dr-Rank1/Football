@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rank.football.GoalStreamApp
 import com.rank.football.data.model.FixtureItem
+import com.rank.football.data.model.isUpcoming
 import com.rank.football.data.repository.FootballRepository
 import com.rank.football.ui.components.LiveMatchBus
 import com.rank.football.util.Result
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -22,6 +24,9 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
     private val _liveMatches = MutableStateFlow<Result<List<FixtureItem>>>(Result.Loading)
     val liveMatches: StateFlow<Result<List<FixtureItem>>> = _liveMatches.asStateFlow()
 
+    private val _todayUpcoming = MutableStateFlow<List<FixtureItem>>(emptyList())
+    val todayUpcoming: StateFlow<List<FixtureItem>> = _todayUpcoming.asStateFlow()
+
     fun loadLiveMatches() {
         viewModelScope.launch {
             _liveMatches.value = Result.Loading
@@ -30,6 +35,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
                 val fixtures = streamRepository.filterStreamable(repository.getLiveFixtures())
                 _liveMatches.value = Result.Success(fixtures)
                 LiveMatchBus.publish(fixtures)
+                _todayUpcoming.value = streamRepository
+                    .filterStreamable(repository.getFixturesByDate(LocalDate.now()))
+                    .filter { it.isUpcoming() }
+                    .sortedBy { it.fixture.date }
             } catch (e: Exception) {
                 _liveMatches.value = Result.Error(e.message ?: "Unknown error")
             }

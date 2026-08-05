@@ -134,12 +134,12 @@ data class StandingGoals(
     val against: Int = 0
 )
 
-fun FixtureItem.isLive(): Boolean {
-    val status = fixture.status.short
-    return status in listOf("1H", "2H", "HT", "ET", "BT", "P", "LIVE", "INT")
-}
+private val LIVE_STATUSES = setOf("1H", "2H", "HT", "ET", "BT", "P", "INT", "LIVE", "BR")
+private val FINISHED_STATUSES = setOf("FT", "AET", "PEN", "FF", "WO", "AWD")
 
-fun FixtureItem.isFinished(): Boolean = fixture.status.short == "FT"
+fun FixtureItem.isLive(): Boolean = fixture.status.short in LIVE_STATUSES
+
+fun FixtureItem.isFinished(): Boolean = fixture.status.short in FINISHED_STATUSES
 
 fun FixtureItem.isUpcoming(): Boolean = fixture.status.short == "NS"
 
@@ -151,8 +151,10 @@ fun FixtureItem.displayScore(): String {
 
 fun FixtureItem.kickOffTime(): String {
     return try {
-        val timePart = fixture.date.substringAfter("T").take(5)
-        timePart
+        java.time.OffsetDateTime.parse(fixture.date)
+            .atZoneSameInstant(java.time.ZoneId.systemDefault())
+            .toLocalTime()
+            .format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
     } catch (_: Exception) {
         "--:--"
     }

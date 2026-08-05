@@ -36,9 +36,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.rank.football.data.model.FixtureEventItem
+import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.FixtureStatisticsItem
 import com.rank.football.data.model.LineupItem
 import com.rank.football.data.model.intValue
+import com.rank.football.data.model.kickOffTime
 import com.rank.football.ui.theme.BarlowCondensed
 import com.rank.football.ui.theme.CardDark
 import com.rank.football.ui.theme.DmSans
@@ -48,7 +50,7 @@ import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
 
-private val TAB_LABELS = listOf("Events", "Stats", "Lineups", "Chat")
+private val TAB_LABELS = listOf("Timeline", "Stats", "Lineups", "Chat", "Info")
 
 @Composable
 fun MatchDetailTabs(
@@ -58,6 +60,7 @@ fun MatchDetailTabs(
     currentMinute: Int,
     onEventSeek: (Int) -> Unit,
     fixtureId: Int = 0,
+    fixture: FixtureItem? = null,
     panelModifier: Modifier = Modifier
 ) {
     var tab by remember { mutableIntStateOf(0) }
@@ -66,29 +69,33 @@ fun MatchDetailTabs(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(CardDark)
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
             TAB_LABELS.forEachIndexed { index, label ->
                 val selected = tab == index
-                Text(
-                    text = label.uppercase(),
-                    color = if (selected) StadiumBlack else TextGrey,
-                    fontFamily = BarlowCondensed,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    letterSpacing = 1.sp,
-                    textAlign = TextAlign.Center,
+                Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) PitchGreen else StadiumBlack.copy(alpha = 0f))
-                        .clickable { tab = index }
-                        .padding(vertical = 8.dp)
-                )
+                        .clickable { tab = index },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = label.uppercase(),
+                        color = if (selected) PitchGreen else TextGrey,
+                        fontFamily = BarlowCondensed,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier.padding(vertical = 11.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(if (selected) PitchGreen else StadiumBlack)
+                    )
+                }
             }
         }
 
@@ -106,6 +113,56 @@ fun MatchDetailTabs(
             1 -> StatsPanel(statistics = statistics)
             2 -> LineupsPanel(lineups = lineups)
             3 -> MatchChatPanel(fixtureId = fixtureId)
+            4 -> InfoPanel(fixture = fixture)
+        }
+    }
+}
+
+@Composable
+private fun InfoPanel(fixture: FixtureItem?) {
+    if (fixture == null) {
+        EmptyDetail("Match info unavailable")
+        return
+    }
+    val rows = listOf(
+        "Competition" to fixture.league.name,
+        "Country" to fixture.league.country.orEmpty(),
+        "Kick Off" to fixture.kickOffTime(),
+        "Status" to (fixture.fixture.status.long ?: fixture.fixture.status.short)
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        rows.forEach { (key, value) ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(width = 1.dp, color = TextWhite.copy(alpha = 0.05f))
+                    .padding(vertical = 11.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = key,
+                    color = TextGrey,
+                    fontFamily = DmSans,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = value,
+                    color = TextWhite,
+                    fontFamily = DmSans,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+            }
         }
     }
 }
@@ -113,7 +170,11 @@ fun MatchDetailTabs(
 @Composable
 private fun EventsList(events: List<FixtureEventItem>) {
     if (events.isEmpty()) {
-        EmptyDetail("No events yet")
+        EmptyStadium(
+            title = "Match Not Started",
+            subtitle = "Timeline events will appear here once the match begins.",
+            modifier = Modifier.fillMaxWidth()
+        )
         return
     }
     Column(

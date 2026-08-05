@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 /** Zip UI reference palette (theme.css). */
 val StadiumBlack = Color(0xFF0A0A0F)
+val BottomNavBg = Color(0xFF0D0D17)
 val PitchGreen = Color(0xFF00C853)
 val NeonGreen = Color(0xFF69FF47)
 val CardDark = Color(0xFF12121C)

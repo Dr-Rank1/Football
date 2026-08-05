@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,9 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rank.football.ui.theme.BarlowCondensed
+import com.rank.football.ui.theme.BottomNavBg
 import com.rank.football.ui.theme.LiveRed
+import com.rank.football.ui.theme.NeonGreen
 import com.rank.football.ui.theme.PitchGreen
-import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 
@@ -49,7 +51,7 @@ fun StreamBottomBar(
     Column(
         barModifier
             .fillMaxWidth()
-            .background(StadiumBlack)
+            .background(BottomNavBg)
             .border(width = 1.dp, color = TextWhite.copy(alpha = 0.06f), shape = RoundedCornerShape(0.dp))
             .navigationBarsPadding()
     ) {
@@ -71,6 +73,13 @@ fun StreamBottomBar(
                         .clickable { onSelect(item.route) }
                         .padding(vertical = 8.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(if (selected) NeonGreen else BottomNavBg)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Box(contentAlignment = Alignment.TopEnd) {
                         Icon(
                             imageVector = item.icon,
@@ -97,15 +106,6 @@ fun StreamBottomBar(
                         letterSpacing = 1.sp,
                         modifier = Modifier.padding(top = 4.dp)
                     )
-                    if (selected) {
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 4.dp)
-                                .size(width = 16.dp, height = 2.dp)
-                                .clip(RoundedCornerShape(1.dp))
-                                .background(PitchGreen)
-                        )
-                    }
                 }
             }
         }

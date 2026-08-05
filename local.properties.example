@@ -3,3 +3,10 @@ API_FOOTBALL_KEY=your_api_key_here
 GEMINI_API_KEY=your_gemini_key_here
 # JSON catalog mapping fixture IDs to HLS/DASH stream URLs (required for watchable matches)
 STREAM_CATALOG_URL=https://your-server.example/streams.json
+# AdMob app ID (used in AndroidManifest via admobAppId placeholder). Defaults to Google test app ID.
+ADMOB_APP_ID=ca-app-pub-3940256099942544~3347511713
+# Ad unit IDs. Default to Google's official test ad units; set to your real units for release.
+ADMOB_BANNER_ID=ca-app-pub-3940256099942544/6300978111
+ADMOB_INTERSTITIAL_ID=ca-app-pub-3940256099942544/1033173712
+ADMOB_REWARDED_ID=ca-app-pub-3940256099942544/5224354917
+ADMOB_REWARDED_INTERSTITIAL_ID=ca-app-pub-3940256099942544/5354046379

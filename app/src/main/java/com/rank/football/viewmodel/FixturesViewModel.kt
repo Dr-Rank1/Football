@@ -68,6 +68,7 @@ class FixturesViewModel(application: Application) : AndroidViewModel(application
     private val _fixtures = MutableStateFlow<Result<List<LeagueGroup>>>(Result.Loading)
     val fixtures: StateFlow<Result<List<LeagueGroup>>> = _fixtures.asStateFlow()
 
+    @Volatile
     private var rawFixtures: List<FixtureItem> = emptyList()
 
     init {

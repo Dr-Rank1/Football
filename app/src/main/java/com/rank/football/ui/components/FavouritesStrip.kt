@@ -1,5 +1,6 @@
 package com.rank.football.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,33 +14,39 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.rank.football.data.local.FavoriteTeam
 import com.rank.football.data.model.FixtureItem
-import com.rank.football.data.model.isLive
+import com.rank.football.ui.theme.DmSans
 import com.rank.football.ui.theme.LiveRed
 import com.rank.football.ui.theme.PitchGreen
 import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 
+/** Favourite-team crest rail with a trailing "+ Add" ghost tile (UI reference). */
 @Composable
 fun FavouritesStrip(
     favorites: List<FavoriteTeam>,
     liveFixtures: List<FixtureItem>,
     selectedTeamId: Int?,
     onTeamClick: (Int?) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAddClick: () -> Unit = {}
 ) {
     if (favorites.isEmpty()) return
 
@@ -53,6 +60,11 @@ fun FavouritesStrip(
                 it.teams.home.id == team.teamId || it.teams.away.id == team.teamId
             }
             val selected = selectedTeamId == team.teamId
+            val selShape = if (team.teamLogo.isNullOrBlank()) {
+                RoundedCornerShape(10.dp)
+            } else {
+                CircleShape
+            }
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
@@ -60,19 +72,18 @@ fun FavouritesStrip(
                 }
             ) {
                 Box {
-                    AsyncImage(
-                        model = team.teamLogo,
-                        contentDescription = team.teamName,
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .border(
-                                width = if (selected) 2.dp else 1.dp,
-                                color = if (selected) PitchGreen else TextGrey.copy(alpha = 0.3f),
-                                shape = CircleShape
-                            )
-                            .background(TextGrey.copy(alpha = 0.15f)),
-                        contentScale = ContentScale.Fit
+                    if (selected) {
+                        Box(
+                            modifier = Modifier
+                                .padding(1.dp)
+                                .size(46.dp)
+                                .border(2.dp, PitchGreen, selShape)
+                        )
+                    }
+                    TeamCrest(
+                        name = team.teamName,
+                        logo = team.teamLogo,
+                        size = 44.dp
                     )
                     if (isLive) {
                         Box(
@@ -85,12 +96,52 @@ fun FavouritesStrip(
                     }
                 }
                 Text(
-                    text = team.teamName.split(" ").firstOrNull().orEmpty(),
+                    text = teamCodeOf(team.teamName),
                     color = if (selected) PitchGreen else TextGrey.copy(alpha = 0.7f),
+                    fontFamily = DmSans,
                     fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
+        item(key = "add_team") {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.clickable(onClick = onAddClick)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .drawBehind {
+                            drawRoundRect(
+                                color = TextGrey.copy(alpha = 0.4f),
+                                cornerRadius = CornerRadius(10.dp.toPx()),
+                                style = Stroke(
+                                    width = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))
+                                )
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+",
+                        color = TextGrey,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                }
+                Text(
+                    text = "Add",
+                    color = TextGrey,
+                    fontFamily = DmSans,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
                     modifier = Modifier.padding(top = 6.dp)
                 )
             }

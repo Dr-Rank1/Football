@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -24,15 +23,7 @@ fun BannerAdView(
     adUnitId: String,
     modifier: Modifier = Modifier
 ) {
-    var currentAdUnitId by remember { mutableStateOf(adUnitId) }
-    var refreshKey by remember { mutableIntStateOf(0) }
-
-    LaunchedEffect(adUnitId) {
-        while (true) {
-            delay(45_000)
-            refreshKey++
-        }
-    }
+    val adViewHolder = remember { mutableStateOf<AdView?>(null) }
 
     AndroidView(
         modifier = modifier
@@ -47,15 +38,23 @@ fun BannerAdView(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 )
-                loadAd(AdRequest.Builder().build())
-            }
+            }.also { adViewHolder.value = it }
         },
-        update = { adView ->
-            if (currentAdUnitId != adUnitId) {
-                currentAdUnitId = adUnitId
-                adView.adUnitId = adUnitId
-            }
-            adView.loadAd(AdRequest.Builder().build())
+        update = { view ->
+            if (adViewHolder.value !== view) adViewHolder.value = view
         }
     )
+
+    LaunchedEffect(adUnitId) {
+        var view = adViewHolder.value
+        while (view == null) {
+            delay(1_000)
+            view = adViewHolder.value
+        }
+        while (true) {
+            val current = adViewHolder.value ?: break
+            current.loadAd(AdRequest.Builder().build())
+            delay(45_000)
+        }
+    }
 }

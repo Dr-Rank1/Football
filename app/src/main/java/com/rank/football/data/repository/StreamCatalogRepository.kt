@@ -10,6 +10,7 @@ import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Request
 
 /** Fetches fixture-to-stream mappings from remote URL and Firebase Realtime Database. */
@@ -21,8 +22,8 @@ class StreamCatalogRepository {
     /** Downloads stream mappings from all configured sources into the shared repository. */
     suspend fun syncInto(streamRepository: StreamRepository): Boolean = withContext(Dispatchers.IO) {
         val merged = linkedMapOf<Int, List<StreamSource>>()
-        loadFromUrl()?.let { merged.putAll(it) }
-        loadFromFirebase()?.let { firebase ->
+        withTimeoutOrNull(CATALOG_SYNC_TIMEOUT_MS) { loadFromUrl() }?.let { merged.putAll(it) }
+        withTimeoutOrNull(CATALOG_SYNC_TIMEOUT_MS) { loadFromFirebase() }?.let { firebase ->
             firebase.forEach { (id, sources) -> merged[id] = sources }
         }
         if (merged.isEmpty()) {
@@ -33,20 +34,25 @@ class StreamCatalogRepository {
         true
     }
 
+    private companion object {
+        const val CATALOG_SYNC_TIMEOUT_MS = 4_000L
+    }
+
     /** Loads stream entries from the optional HTTP catalog URL. */
     private fun loadFromUrl(): Map<Int, List<StreamSource>>? {
         val url = BuildConfig.STREAM_CATALOG_URL.trim()
         if (url.isBlank()) return null
         return runCatching {
-            val response = httpClient.newCall(Request.Builder().url(url).get().build()).execute()
-            if (!response.isSuccessful) return null
-            val body = response.body?.string().orEmpty()
-            if (body.isBlank()) return null
-            val catalog = gson.fromJson(body, StreamCatalogResponse::class.java)
-            catalog.streams
-                .filter { it.fixtureId > 0 && it.streamUrl.isNotBlank() }
-                .groupBy { it.fixtureId }
-                .mapValues { (_, entries) -> entries.map { it.toStreamSource() } }
+            httpClient.newCall(Request.Builder().url(url).get().build()).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                val body = response.body?.string().orEmpty()
+                if (body.isBlank()) return@use null
+                val catalog = gson.fromJson(body, StreamCatalogResponse::class.java)
+                catalog.streams
+                    .filter { it.fixtureId > 0 && it.streamUrl.isNotBlank() }
+                    .groupBy { it.fixtureId }
+                    .mapValues { (_, entries) -> entries.map { it.toStreamSource() } }
+            }
         }.getOrNull()
     }
 

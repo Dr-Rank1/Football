@@ -25,11 +25,20 @@ object DeviceSecurity {
     /** Returns true if the installed APK signature matches the expected release signature. */
     fun isOfficialBuild(context: Context): Boolean {
         return try {
-            val info = context.packageManager.getPackageInfo(
-                context.packageName,
-                PackageManager.GET_SIGNING_CERTIFICATES
-            )
-            info.signingInfo?.apkContentsSigners?.isNotEmpty() == true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val info = context.packageManager.getPackageInfo(
+                    context.packageName,
+                    PackageManager.GET_SIGNING_CERTIFICATES
+                )
+                info.signingInfo?.apkContentsSigners?.isNotEmpty() == true
+            } else {
+                @Suppress("DEPRECATION")
+                val info = context.packageManager.getPackageInfo(
+                    context.packageName,
+                    PackageManager.GET_SIGNATURES
+                )
+                info.signatures?.isNotEmpty() == true
+            }
         } catch (_: Exception) {
             true
         }

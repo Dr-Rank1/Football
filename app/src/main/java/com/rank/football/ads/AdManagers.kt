@@ -26,7 +26,7 @@ class InterstitialAdManager(private val context: Context) {
     fun loadAd() {
         InterstitialAd.load(
             context,
-            AdConstants.INTERSTITIAL_TEST_UNIT_ID,
+            AdConstants.INTERSTITIAL_UNIT_ID,
             AdRequest.Builder().build(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
@@ -88,7 +88,7 @@ class RewardedAdManager(private val context: Context) {
     fun loadAd() {
         RewardedAd.load(
             context,
-            AdConstants.REWARDED_TEST_UNIT_ID,
+            AdConstants.REWARDED_UNIT_ID,
             AdRequest.Builder().build(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {

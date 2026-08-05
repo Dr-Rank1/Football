@@ -23,12 +23,8 @@ object RetrofitClient {
     @Volatile
     private var apiService: FootballApiService? = null
 
-    @Volatile
-    private var appContext: Context? = null
-
     /** Returns the singleton FootballApiService for the given context. */
     fun getApiService(context: Context): FootballApiService {
-        appContext = context.applicationContext
         return apiService ?: synchronized(this) {
             apiService ?: createApiService(context.applicationContext).also { apiService = it }
         }
