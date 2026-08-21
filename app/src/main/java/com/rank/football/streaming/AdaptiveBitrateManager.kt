@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -17,6 +18,7 @@ class AdaptiveBitrateManager(
 ) {
     private var lastTier = QualityTier.HD
     private var lastDowngradeToastMs = 0L
+    private var observeJob: Job? = null
 
     enum class QualityTier(val maxBitrate: Int, val label: String) {
         HD(5_000_000, "HD"),
@@ -26,7 +28,8 @@ class AdaptiveBitrateManager(
 
     /** Observes health reports and applies adaptive bitrate decisions. */
     fun start() {
-        scope.launch {
+        if (observeJob?.isActive == true) return
+        observeJob = scope.launch {
             healthMonitor.report
                 .map { decideTier(it) }
                 .distinctUntilChanged()
@@ -34,6 +37,12 @@ class AdaptiveBitrateManager(
                     applyTier(tier)
                 }
         }
+    }
+
+    /** Stops bitrate adjustments before the player is released. */
+    fun stop() {
+        observeJob?.cancel()
+        observeJob = null
     }
 
     /** Maps a health report to the preferred quality tier. */

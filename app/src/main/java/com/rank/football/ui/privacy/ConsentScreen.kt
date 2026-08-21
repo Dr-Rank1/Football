@@ -1,5 +1,7 @@
 package com.rank.football.ui.privacy
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -70,9 +72,11 @@ fun ConsentScreen(onAccepted: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedButton(
             onClick = {
-                scope.launch {
-                    AppPreferences.setConsentGiven(context)
-                    onAccepted()
+                try {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://goalstream.app/privacy"))
+                    )
+                } catch (_: Exception) {
                 }
             },
             modifier = Modifier.fillMaxWidth()

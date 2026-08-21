@@ -1,11 +1,10 @@
 package com.rank.football.data.local
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
-@Entity(tableName = "standings")
+@Entity(tableName = "standings", primaryKeys = ["teamId", "leagueId"])
 data class CachedStanding(
-    @PrimaryKey val teamId: Int,
+    val teamId: Int,
     val leagueId: Int,
     val position: Int,
     val teamName: String,

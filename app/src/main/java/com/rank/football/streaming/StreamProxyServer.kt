@@ -4,24 +4,31 @@ import android.util.Log
 import fi.iki.elonen.NanoHTTPD
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.FilterInputStream
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /** Local NanoHTTPD proxy that forwards stream requests with custom Referer headers. */
 class StreamProxyServer(
-    private val port: Int = DEFAULT_PORT,
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
-) : NanoHTTPD(port) {
+) : NanoHTTPD(0) {
 
-    /** Starts the proxy server on the configured port. */
+    @Volatile
+    private var boundPort: Int = -1
+
+    /** Starts the proxy on an ephemeral localhost port. */
     fun startServer() {
         try {
-            if (!isAlive) start(SOCKET_READ_TIMEOUT, false)
+            if (!isAlive) {
+                start(SOCKET_READ_TIMEOUT, false)
+                boundPort = listeningPort
+            }
         } catch (e: Exception) {
+            boundPort = -1
             Log.e(TAG, "Failed to start stream proxy", e)
         }
     }
@@ -33,6 +40,7 @@ class StreamProxyServer(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to stop stream proxy", e)
         }
+        boundPort = -1
         try {
             client.connectionPool.evictAll()
             client.dispatcher.executorService.shutdown()
@@ -41,8 +49,13 @@ class StreamProxyServer(
         }
     }
 
-    /** Builds a localhost proxy URL for the given remote stream URL. */
+    /**
+     * Builds a localhost proxy URL for [originalUrl], or returns the original
+     * URL when the proxy is not listening.
+     */
     fun buildProxyUrl(originalUrl: String): String {
+        val port = boundPort
+        if (!isAlive || port <= 0) return originalUrl
         val encoded = URLEncoder.encode(originalUrl, Charsets.UTF_8.name())
         return "http://127.0.0.1:$port/stream?url=$encoded"
     }
@@ -66,10 +79,19 @@ class StreamProxyServer(
                 )
             }
             val mime = response.header("Content-Type") ?: "application/octet-stream"
+            val stream = object : FilterInputStream(body.byteStream()) {
+                override fun close() {
+                    try {
+                        super.close()
+                    } finally {
+                        response.close()
+                    }
+                }
+            }
             newChunkedResponse(
-                Response.Status.lookup(response.code),
+                Response.Status.lookup(response.code) ?: Response.Status.INTERNAL_ERROR,
                 mime,
-                body.byteStream()
+                stream
             )
         } catch (e: Exception) {
             Log.e(TAG, "Proxy fetch failed: $targetUrl", e)
@@ -79,7 +101,6 @@ class StreamProxyServer(
 
     companion object {
         private const val TAG = "StreamProxy"
-        const val DEFAULT_PORT = 8888
         private const val SOCKET_READ_TIMEOUT = 30_000
     }
 }

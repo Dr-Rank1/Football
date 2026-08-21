@@ -3,6 +3,7 @@ package com.rank.football
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -85,8 +86,11 @@ import com.rank.football.ui.theme.StadiumBlack
 import com.rank.football.update.InAppUpdateManager
 import com.rank.football.util.NetworkMonitor
 import com.rank.football.util.ReminderHelper
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+private data class WatchDeepLink(val fixtureId: Int, val nonce: Long = System.nanoTime())
 
 class MainActivity : ComponentActivity() {
 
@@ -96,6 +100,8 @@ class MainActivity : ComponentActivity() {
     private var isOnWatchScreen = false
     private var isPlaying = false
     private var isAdPlaying = false
+    private var pipSourceRect: Rect? = null
+    private val watchDeepLink = MutableStateFlow<WatchDeepLink?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -106,9 +112,11 @@ class MainActivity : ComponentActivity() {
         appOpenAdManager = AppOpenAdManager(this)
         interstitialAdManager.loadAd()
         rewardedAdManager.loadAd()
+        parseFixtureId(intent)?.let { watchDeepLink.value = WatchDeepLink(it) }
 
         enableEdgeToEdge()
         setContent {
+            val deepLink by watchDeepLink.collectAsState()
             GoalStreamTheme {
                 GoalStreamRoot(
                     interstitialAdManager = interstitialAdManager,
@@ -118,10 +126,17 @@ class MainActivity : ComponentActivity() {
                         isOnWatchScreen = onWatch
                         appOpenAdManager.setOnWatchScreen(onWatch)
                         if (!onWatch) interstitialAdManager.markLeftWatch()
+                        syncPipParams()
                     },
-                    onPlayingChanged = { playing -> isPlaying = playing },
-                    onAdPlayingChanged = { isAdPlaying = it },
-                    deepLinkFixtureId = parseFixtureId(intent)
+                    onPlayingChanged = { playing ->
+                        isPlaying = playing
+                        syncPipParams()
+                    },
+                    onAdPlayingChanged = { playing ->
+                        isAdPlaying = playing
+                        syncPipParams()
+                    },
+                    deepLink = deepLink
                 )
             }
         }
@@ -130,9 +145,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        parseFixtureId(intent)?.let { id ->
-            // Navigation handled via recomposition when intent extra updates
-        }
+        parseFixtureId(intent)?.let { watchDeepLink.value = WatchDeepLink(it) }
     }
 
     /** Parses fixture ID from intent extras or goalstream://watch/{id} deep link. */
@@ -155,6 +168,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return
         if (isOnWatchScreen && isPlaying && !isAdPlaying && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val params = PictureInPictureParams.Builder()
                 .setAspectRatio(Rational(16, 9))
@@ -162,6 +176,24 @@ class MainActivity : ComponentActivity() {
                 params.setActions(PipHelper.buildPipActions(this, isPlaying))
             }
             enterPictureInPictureMode(params.build())
+        }
+    }
+
+    fun updatePipSourceRect(rect: Rect) {
+        pipSourceRect = rect
+        syncPipParams()
+    }
+
+    private fun syncPipParams() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val builder = PictureInPictureParams.Builder()
+            .setAspectRatio(Rational(16, 9))
+            .setAutoEnterEnabled(isOnWatchScreen && isPlaying && !isAdPlaying)
+            .setActions(PipHelper.buildPipActions(this, isPlaying))
+        pipSourceRect?.let { builder.setSourceRectHint(it) }
+        try {
+            setPictureInPictureParams(builder.build())
+        } catch (_: IllegalStateException) {
         }
     }
 
@@ -190,7 +222,7 @@ private fun GoalStreamRoot(
     onWatchScreenChanged: (Boolean) -> Unit,
     onPlayingChanged: (Boolean) -> Unit,
     onAdPlayingChanged: (Boolean) -> Unit,
-    deepLinkFixtureId: Int?
+    deepLink: WatchDeepLink?
 ) {
     val context = LocalContext.current
     var forceShowMain by remember { mutableStateOf(false) }
@@ -207,7 +239,7 @@ private fun GoalStreamRoot(
             onWatchScreenChanged = onWatchScreenChanged,
             onPlayingChanged = onPlayingChanged,
             onAdPlayingChanged = onAdPlayingChanged,
-            deepLinkFixtureId = deepLinkFixtureId
+            deepLink = deepLink
         )
     }
 }
@@ -231,7 +263,7 @@ private fun GoalStreamNav(
     onWatchScreenChanged: (Boolean) -> Unit,
     onPlayingChanged: (Boolean) -> Unit,
     onAdPlayingChanged: (Boolean) -> Unit,
-    deepLinkFixtureId: Int?
+    deepLink: WatchDeepLink?
 ) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -285,7 +317,9 @@ private fun GoalStreamNav(
         }
         activity?.let { activity ->
             interstitialAdManager.showBeforeNavigation(activity) {
-                navController.navigate("watch/$fixtureId")
+                navController.navigate("watch/$fixtureId") {
+                    launchSingleTop = true
+                }
             }
         }
     }
@@ -298,8 +332,8 @@ private fun GoalStreamNav(
         }
     }
 
-    LaunchedEffect(deepLinkFixtureId) {
-        deepLinkFixtureId?.let { navigateToWatch(it) }
+    LaunchedEffect(deepLink) {
+        deepLink?.let { navigateToWatch(it.fixtureId) }
     }
 
     LaunchedEffect(currentRoute) {
@@ -393,10 +427,10 @@ private fun GoalStreamNav(
                 composable("language") {
                     LanguageSettingsScreen(onBack = { navController.popBackStack() })
                 }
+                composable("revenue") {
+                    RevenueStatsScreen(onBack = { navController.popBackStack() })
+                }
                 if (BuildConfig.DEBUG) {
-                    composable("revenue") {
-                        RevenueStatsScreen(onBack = { navController.popBackStack() })
-                    }
                     composable("analytics-dashboard") {
                         AnalyticsDashboardScreen()
                     }

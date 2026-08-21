@@ -2,6 +2,7 @@ package com.rank.football.util
 
 import android.content.Context
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.rank.football.workers.MatchReminderWorker
@@ -42,6 +43,10 @@ object MatchReminderScheduler {
             .addTag("reminder_$fixtureId")
             .build()
 
-        WorkManager.getInstance(context).enqueue(request)
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            "reminder_$fixtureId",
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
     }
 }

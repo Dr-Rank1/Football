@@ -1,5 +1,6 @@
 package com.rank.football.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -10,5 +11,7 @@ data class FavoriteTeam(
     val teamLogo: String,
     val leagueId: Int,
     val leagueName: String,
-    val addedAt: Long = System.currentTimeMillis()
+    val addedAt: Long = System.currentTimeMillis(),
+    @ColumnInfo(defaultValue = "team")
+    val favoriteType: String = "team"
 )

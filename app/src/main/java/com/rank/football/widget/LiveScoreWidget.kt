@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.os.Bundle
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequest
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.rank.football.workers.WidgetUpdateWorker
@@ -34,12 +35,15 @@ class LiveScoreWidget : AppWidgetProvider() {
     companion object {
         const val WIDGET_WORK_NAME = "live_score_widget"
 
-        /** Schedules periodic widget refresh every 2 minutes via WorkManager. */
+        /** Schedules periodic widget refresh at WorkManager's 15-minute minimum. */
         fun scheduleUpdates(context: Context) {
-            val request = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(2, TimeUnit.MINUTES).build()
+            val request = PeriodicWorkRequestBuilder<WidgetUpdateWorker>(
+                PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS,
+                TimeUnit.MILLISECONDS
+            ).build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WIDGET_WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request
             )
         }

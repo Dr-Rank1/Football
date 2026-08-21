@@ -315,7 +315,8 @@ class PlayerViewModel(
             url = streamUrl,
             quality = quality,
             label = title.ifBlank { "Server $serverNumber" },
-            type = type
+            type = type,
+            requiresRewardedAd = requiresRewardedAd
         )
     }
 
@@ -344,6 +345,7 @@ class PlayerViewModel(
     }
 
     fun selectPlaybackSource(source: PlaybackStreamSource) {
+        if (source.requiresRewardedAd && !_hdUnlocked.value) return
         val index = _playbackSources.value.indexOfFirst { it.url == source.url }
         if (index >= 0) {
             currentSourceIndex = index
@@ -499,6 +501,8 @@ class PlayerViewModel(
                 Log.e(TAG, "update watch duration failed", e)
             }
         }
+        healthMonitor.stop()
+        abrManager.stop()
         try {
             exoPlayer.release()
         } catch (e: Exception) {
