@@ -6,5 +6,6 @@ data class PlaybackStreamSource(
     val url: String,
     val quality: String,
     val label: String,
-    val type: StreamType
+    val type: StreamType,
+    val requiresRewardedAd: Boolean = false
 )

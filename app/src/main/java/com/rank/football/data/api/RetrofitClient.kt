@@ -108,11 +108,11 @@ object RetrofitClient {
             .create(FootballApiService::class.java)
     }
 
-    /** Builds the release certificate pinner for the football API host. */
+    /** Pins Let's Encrypt YE2 intermediate and ISRG Root X2 for the football API host. */
     private fun buildCertificatePinner(): CertificatePinner =
         CertificatePinner.Builder()
-            .add("v3.football.api-sports.io", "sha256/afwiKY3RxoMmLkuRW1l7QsPZTJPwDS2pdDROQjXw8ig=")
-            .add("v3.football.api-sports.io", "sha256/jQJTbIh0grw0/TKTurkEkI/wGk3/BLcW6S1UCQH6FEo=")
+            .add("v3.football.api-sports.io", "sha256/s/tdAOmUzd8syaTuqfgGvFcn6DzA5Cmb+Vby1ST+U3Y=")
+            .add("v3.football.api-sports.io", "sha256/sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=")
             .build()
 
     /** Creates a plain OkHttp client without API interceptors. */

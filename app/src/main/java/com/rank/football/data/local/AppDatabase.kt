@@ -26,7 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ArticleCache::class,
         CachedFixtureSnapshot::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -231,7 +231,66 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
-        /** Returns the singleton Room database with migrations through v5. */
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addColumnIfMissing(
+                    db,
+                    table = "favorite_teams",
+                    column = "favoriteType",
+                    definition = "TEXT NOT NULL DEFAULT 'team'"
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_watch_history_leagueId ON watch_history(leagueId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_watch_history_watchedAt ON watch_history(watchedAt)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_events_timestamp ON analytics_events(timestamp)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_analytics_events_eventName ON analytics_events(eventName)")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS standings_new (
+                        teamId INTEGER NOT NULL,
+                        leagueId INTEGER NOT NULL,
+                        position INTEGER NOT NULL,
+                        teamName TEXT NOT NULL,
+                        teamLogo TEXT NOT NULL,
+                        played INTEGER NOT NULL,
+                        won INTEGER NOT NULL,
+                        drawn INTEGER NOT NULL,
+                        lost INTEGER NOT NULL,
+                        goalsFor INTEGER NOT NULL,
+                        goalsAgainst INTEGER NOT NULL,
+                        points INTEGER NOT NULL,
+                        form TEXT NOT NULL,
+                        lastUpdated INTEGER NOT NULL,
+                        PRIMARY KEY(teamId, leagueId)
+                    )"""
+                )
+                db.execSQL(
+                    """INSERT OR IGNORE INTO standings_new
+                        (teamId, leagueId, position, teamName, teamLogo, played, won, drawn, lost,
+                         goalsFor, goalsAgainst, points, form, lastUpdated)
+                        SELECT teamId, leagueId, position, teamName, teamLogo, played, won, drawn, lost,
+                               goalsFor, goalsAgainst, points, form, lastUpdated FROM standings"""
+                )
+                db.execSQL("DROP TABLE standings")
+                db.execSQL("ALTER TABLE standings_new RENAME TO standings")
+            }
+        }
+
+        private fun addColumnIfMissing(
+            db: SupportSQLiteDatabase,
+            table: String,
+            column: String,
+            definition: String
+        ) {
+            db.query("PRAGMA table_info($table)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext()) {
+                    if (nameIndex >= 0 && cursor.getString(nameIndex) == column) return
+                }
+            }
+            db.execSQL("ALTER TABLE $table ADD COLUMN $column $definition")
+        }
+
+        /** Returns the singleton Room database with migrations through v6. */
         fun getInstance(context: Context): AppDatabase {
             return instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -239,7 +298,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "goalstream.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6
+                    )
                     .build()
                     .also { instance = it }
             }

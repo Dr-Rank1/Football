@@ -8,6 +8,7 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.rank.football.analytics.LocalAnalytics
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,10 +41,12 @@ class StreamHealthMonitor(
     private var stallDurationMs = 0L
     private var stallStartMs = 0L
     private var analyticsCounter = 0
+    private var sampleJob: Job? = null
 
     /** Starts the background health sampling loop. */
     fun start() {
-        scope.launch {
+        if (sampleJob?.isActive == true) return
+        sampleJob = scope.launch {
             while (isActive) {
                 sample()
                 delay(5_000)
@@ -51,8 +54,21 @@ class StreamHealthMonitor(
         }
     }
 
+    /** Cancels health sampling so it cannot touch a released player. */
+    fun stop() {
+        sampleJob?.cancel()
+        sampleJob = null
+    }
+
     /** Samples current player and network state into a health report. */
     private fun sample() {
+        try {
+            sampleUnsafe()
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun sampleUnsafe() {
         val now = System.currentTimeMillis()
         val rx = TrafficStats.getTotalRxBytes()
         val elapsedSec = ((now - lastSampleTime).coerceAtLeast(1)) / 1000.0
@@ -73,6 +89,7 @@ class StreamHealthMonitor(
                     stallStartMs = 0L
                 }
             }
+            Player.STATE_IDLE -> Unit
         }
 
         val bitrate = try {

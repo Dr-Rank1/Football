@@ -3,9 +3,11 @@ package com.rank.football.data.local
 import com.rank.football.data.model.StandingEntry
 
 /** Maps an API standings row into a Room cache entity with real GF/GA and form. */
-fun StandingEntry.toCachedStanding(leagueId: Int, nowMs: Long = System.currentTimeMillis()): CachedStanding =
-    CachedStanding(
-        teamId = team.id ?: 0,
+fun StandingEntry.toCachedStanding(leagueId: Int, nowMs: Long = System.currentTimeMillis()): CachedStanding? {
+    val id = team.id ?: return null
+    if (id == 0) return null
+    return CachedStanding(
+        teamId = id,
         leagueId = leagueId,
         position = rank,
         teamName = team.name,
@@ -20,3 +22,4 @@ fun StandingEntry.toCachedStanding(leagueId: Int, nowMs: Long = System.currentTi
         form = form.orEmpty(),
         lastUpdated = nowMs
     )
+}

@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -150,6 +151,7 @@ fun WatchScreen(
     val statistics by viewModel.statistics.collectAsState()
     val lineups by viewModel.lineups.collectAsState()
     val newGoal by viewModel.newGoalDetected.collectAsState()
+    val hdUnlocked by viewModel.hdUnlocked.collectAsState()
 
     var showControls by remember { mutableStateOf(true) }
     var controlsKey by remember { mutableIntStateOf(0) }
@@ -159,6 +161,27 @@ fun WatchScreen(
 
     val fixture = (fixtureResult as? Result.Success)?.data
     val isLiveMatch = fixture?.isLive() == true
+
+    fun selectSource(source: PlaybackStreamSource) {
+        if (source.requiresRewardedAd && !hdUnlocked) {
+            onAdPlayingChanged(true)
+            rewardedAdManager.show(
+                activity,
+                onRewarded = {
+                    viewModel.unlockHd()
+                    viewModel.selectPlaybackSource(source)
+                },
+                onDismissed = { onAdPlayingChanged(false) },
+                onUnavailable = {
+                    onAdPlayingChanged(false)
+                    viewModel.unlockHd()
+                    viewModel.selectPlaybackSource(source)
+                }
+            )
+            return
+        }
+        viewModel.selectPlaybackSource(source)
+    }
 
     LaunchedEffect(isLandscape) {
         if (isLandscape) onEnterFullscreen() else onExitFullscreen()
@@ -268,6 +291,17 @@ fun WatchScreen(
                 .fillMaxWidth()
                 .then(if (isLandscape) Modifier.weight(1f) else Modifier.aspectRatio(16f / 9f))
                 .background(Color.Black)
+                .onGloballyPositioned { coords ->
+                    val topLeft = coords.localToWindow(Offset.Zero)
+                    (activity as? com.rank.football.MainActivity)?.updatePipSourceRect(
+                        android.graphics.Rect(
+                            topLeft.x.toInt(),
+                            topLeft.y.toInt(),
+                            (topLeft.x + coords.size.width).toInt(),
+                            (topLeft.y + coords.size.height).toInt()
+                        )
+                    )
+                }
                 .pointerInput(Unit) {
                     detectTapGestures(onTap = {
                         showControls = !showControls
@@ -395,8 +429,10 @@ fun WatchScreen(
                                                 viewModel.exoPlayer.isPlaying
                                             )
                                         )
-                                        .build()
-                                    activity.enterPictureInPictureMode(params)
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        params.setAutoEnterEnabled(true)
+                                    }
+                                    activity.enterPictureInPictureMode(params.build())
                                 }) {
                                     Icon(Icons.Default.PictureInPictureAlt, null, tint = PitchGreen)
                                 }
@@ -488,7 +524,7 @@ fun WatchScreen(
                         StreamSourceChip(
                             source = source,
                             selected = source.url == viewModel.currentStreamUrl(),
-                            onSelect = { viewModel.selectPlaybackSource(source) }
+                            onSelect = { selectSource(source) }
                         )
                     }
                 }
@@ -516,7 +552,7 @@ fun WatchScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                viewModel.selectPlaybackSource(source)
+                                selectSource(source)
                                 showSources = false
                             }
                             .background(

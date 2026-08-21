@@ -60,7 +60,7 @@ class DataSyncWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val standings = repo.getStandings(leagueId, LocalDate.now().year) ?: return
         val table = standings.league.standings.firstOrNull().orEmpty()
         val now = System.currentTimeMillis()
-        val rows = table.map { it.toCachedStanding(leagueId, now) }
+        val rows = table.mapNotNull { it.toCachedStanding(leagueId, now) }
         db.standingsDao().deleteByLeague(leagueId)
         if (rows.isNotEmpty()) db.standingsDao().insertAll(rows)
     }

@@ -102,21 +102,29 @@ class RewardedAdManager(private val context: Context) {
         )
     }
 
-    fun show(activity: Activity, onRewarded: () -> Unit) {
+    fun show(
+        activity: Activity,
+        onRewarded: () -> Unit,
+        onDismissed: () -> Unit = {},
+        onUnavailable: () -> Unit = {}
+    ) {
         val ad = rewardedAd
         if (ad == null) {
             loadAd()
+            onUnavailable()
             return
         }
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 rewardedAd = null
                 loadAd()
+                onDismissed()
             }
 
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 rewardedAd = null
                 loadAd()
+                onUnavailable()
             }
         }
         ad.show(activity) {
