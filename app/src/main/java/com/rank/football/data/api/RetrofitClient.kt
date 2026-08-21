@@ -115,6 +115,29 @@ object RetrofitClient {
             .add("v3.football.api-sports.io", "sha256/sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=")
             .build()
 
+    /** Creates an OkHttp client with stream-friendly timeouts and browser headers. */
+    fun createStreamOkHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(45, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+                    )
+                    .header("Accept", "*/*")
+                    .header("Referer", "https://goalstream.app/")
+                    .header("Origin", "https://goalstream.app")
+                    .build()
+                chain.proceed(request)
+            }
+            .build()
+    }
+
     /** Creates a plain OkHttp client without API interceptors. */
     fun createOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()

@@ -47,6 +47,17 @@ class FootballRepository(context: Context) {
 
     suspend fun getTodayFixtures(): List<FixtureItem> = getFixturesByDate(LocalDate.now())
 
+    /** Returns fixtures from [start] through [end], inclusive. */
+    suspend fun getFixturesInRange(start: LocalDate, end: LocalDate): List<FixtureItem> =
+        withContext(Dispatchers.IO) {
+            val dates = generateSequence(start) { it.plusDays(1) }
+                .takeWhile { !it.isAfter(end) }
+                .toList()
+            coroutineScope {
+                dates.map { date -> async { getFixturesByDate(date) } }.awaitAll()
+            }.flatten().distinctBy { it.fixture.id }
+        }
+
     /** Returns World Cup fixtures for the current and previous season years. */
     suspend fun getWorldCupFixtures(): List<FixtureItem> = withContext(Dispatchers.IO) {
         val year = LocalDate.now().year
@@ -99,16 +110,21 @@ class FootballRepository(context: Context) {
     }
 
     suspend fun getFixtureById(fixtureId: Int): FixtureItem? = withContext(Dispatchers.IO) {
+        runCatching { api.getFixture(fixtureId).response.firstOrNull() }.getOrNull()
+            ?: findFixtureInNearbyDates(fixtureId)
+    }
+
+    private suspend fun findFixtureInNearbyDates(fixtureId: Int): FixtureItem? {
         val today = LocalDate.now()
         val dates = (-1..1).map { today.plusDays(it.toLong()) }
         val byDate = coroutineScope {
             dates.map { date -> async { getFixturesByDate(date) } }.awaitAll()
         }
-        for (index in dates.indices) {
-            val match = byDate[index].find { it.fixture.id == fixtureId }
-            if (match != null) return@withContext match
+        for (list in byDate) {
+            val match = list.find { it.fixture.id == fixtureId }
+            if (match != null) return match
         }
-        getLiveFixtures().find { it.fixture.id == fixtureId }
+        return getLiveFixtures().find { it.fixture.id == fixtureId }
     }
 
     suspend fun searchFixtures(query: String): List<FixtureItem> = withContext(Dispatchers.IO) {
