@@ -45,7 +45,6 @@ class FixturesViewModel(application: Application) : AndroidViewModel(application
 
     private val app = application as GoalStreamApp
     private val repository = FootballRepository(application)
-    private val streamRepository = app.streamRepository
 
     private val today = LocalDate.now()
     private val windowDays = 28
@@ -133,14 +132,20 @@ class FixturesViewModel(application: Application) : AndroidViewModel(application
                 isToday = date == today
             )
         }
+        val nearbyStart = today.minusDays(1)
+        val nearbyEnd = today.plusDays(1)
         val enriched = coroutineScope {
             days.map { day ->
                 async {
-                    val fixtures = streamRepository.filterStreamable(repository.getFixturesByDate(day.date))
-                    day.copy(
-                        streamableCount = fixtures.size,
-                        liveCount = fixtures.count { it.isLive() }
-                    )
+                    if (day.date.isBefore(nearbyStart) || day.date.isAfter(nearbyEnd)) {
+                        day
+                    } else {
+                        val fixtures = repository.getFixturesByDate(day.date)
+                        day.copy(
+                            streamableCount = fixtures.size,
+                            liveCount = fixtures.count { it.isLive() }
+                        )
+                    }
                 }
             }.awaitAll()
         }
@@ -152,7 +157,7 @@ class FixturesViewModel(application: Application) : AndroidViewModel(application
             _fixtures.value = Result.Loading
             try {
                 app.syncStreamCatalog()
-                rawFixtures = streamRepository.filterStreamable(repository.getFixturesByDate(date))
+                rawFixtures = repository.getFixturesByDate(date)
                 _daySummary.value = FixtureDaySummary(
                     streamableCount = rawFixtures.size,
                     liveCount = rawFixtures.count { it.isLive() },

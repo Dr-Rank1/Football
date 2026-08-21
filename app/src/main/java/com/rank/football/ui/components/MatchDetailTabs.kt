@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -69,31 +70,30 @@ fun MatchDetailTabs(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.Bottom
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(CardDark),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             TAB_LABELS.forEachIndexed { index, label ->
                 val selected = tab == index
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { tab = index },
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) PitchGreen.copy(alpha = 0.16f) else Color.Transparent)
+                        .clickable { tab = index }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = label.uppercase(),
                         color = if (selected) PitchGreen else TextGrey,
                         fontFamily = BarlowCondensed,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        letterSpacing = 1.sp,
-                        modifier = Modifier.padding(vertical = 11.dp)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(if (selected) PitchGreen else StadiumBlack)
+                        fontSize = 11.sp,
+                        letterSpacing = 0.6.sp,
+                        maxLines = 1
                     )
                 }
             }

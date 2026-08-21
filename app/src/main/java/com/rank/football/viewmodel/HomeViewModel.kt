@@ -21,7 +21,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
 data class LeagueGroup(
     val leagueId: Int,
@@ -34,7 +37,6 @@ data class LeagueGroup(
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = FootballRepository(application)
-    private val streamRepository = (application as GoalStreamApp).streamRepository
     val favoritesRepository = FavoritesRepository(AppDatabase.getInstance(application))
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -94,7 +96,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             favoritesRepository.allFavorites.collect { favs ->
                 _favoriteFixtures.value = Result.Loading
                 val teamIds = favs.map { it.teamId }.toSet()
-                val fixtures = streamRepository.filterStreamable(repository.getFixturesForTeamIds(teamIds))
+                val fixtures = repository.getFixturesForTeamIds(teamIds)
                 _favoriteFixtures.value = Result.Success(fixtures)
             }
         }
@@ -120,9 +122,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadLive() {
         viewModelScope.launch(exceptionHandler) {
             _liveMatches.value = Result.Loading
-            val fixtures = streamRepository.filterStreamable(
-                repository.getLiveFixtures() + repository.getWorldCupFixtures()
-            ).distinctBy { it.fixture.id }
+            val fixtures = repository.getLiveFixtures().distinctBy { it.fixture.id }
             _liveMatches.value = Result.Success(fixtures)
             LiveMatchBus.publish(fixtures)
         }
@@ -131,9 +131,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun loadToday() {
         viewModelScope.launch(exceptionHandler) {
             _todayMatches.value = Result.Loading
-            val fixtures = streamRepository.filterStreamable(
-                repository.getTodayFixtures() + repository.getWorldCupFixtures()
-            ).distinctBy { it.fixture.id }
+            val today = LocalDate.now()
+            val weekendEnd = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY))
+            val fixtures = repository.getFixturesInRange(today, weekendEnd)
+                .distinctBy { it.fixture.id }
             _todayMatches.value = Result.Success(groupByLeague(fixtures))
             loadHypeCard(fixtures)
         }

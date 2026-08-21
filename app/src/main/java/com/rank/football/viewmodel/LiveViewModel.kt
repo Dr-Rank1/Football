@@ -19,7 +19,6 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
 
     private val app = application as GoalStreamApp
     private val repository = FootballRepository(application)
-    private val streamRepository = app.streamRepository
 
     private val _liveMatches = MutableStateFlow<Result<List<FixtureItem>>>(Result.Loading)
     val liveMatches: StateFlow<Result<List<FixtureItem>>> = _liveMatches.asStateFlow()
@@ -32,11 +31,10 @@ class LiveViewModel(application: Application) : AndroidViewModel(application) {
             _liveMatches.value = Result.Loading
             try {
                 app.syncStreamCatalog()
-                val fixtures = streamRepository.filterStreamable(repository.getLiveFixtures())
+                val fixtures = repository.getLiveFixtures()
                 _liveMatches.value = Result.Success(fixtures)
                 LiveMatchBus.publish(fixtures)
-                _todayUpcoming.value = streamRepository
-                    .filterStreamable(repository.getFixturesByDate(LocalDate.now()))
+                _todayUpcoming.value = repository.getFixturesByDate(LocalDate.now())
                     .filter { it.isUpcoming() }
                     .sortedBy { it.fixture.date }
             } catch (e: Exception) {

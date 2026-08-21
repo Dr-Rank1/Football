@@ -50,6 +50,7 @@ sealed class PlayerState {
     data object Buffering : PlayerState()
     data class Error(val message: String) : PlayerState()
     data object AllSourcesExhausted : PlayerState()
+    data object NoStream : PlayerState()
 }
 
 @OptIn(androidx.media3.common.util.UnstableApi::class)
@@ -63,7 +64,8 @@ class PlayerViewModel(
     }
 
     private val footballRepository = FootballRepository(application)
-    private val streamRepository = (application as GoalStreamApp).streamRepository
+    private val app = application as GoalStreamApp
+    private val streamRepository = app.streamRepository
 
     private val fixtureId: Int = savedStateHandle.get<Int>("fixtureId") ?: 0
 
@@ -122,9 +124,10 @@ class PlayerViewModel(
     private var currentSourceIndex = 0
     private var allSources: List<PlaybackStreamSource> = emptyList()
     private var networkType: NetworkType = NetworkType.WIFI
+    private var useProxyForCurrent = false
 
     private val dataSourceFactory = OkHttpDataSource.Factory(
-        RetrofitClient.createOkHttpClient()
+        RetrofitClient.createStreamOkHttpClient()
     )
 
     val exoPlayer: ExoPlayer = buildPlayer(application)
@@ -228,6 +231,7 @@ class PlayerViewModel(
                     }
 
                     override fun onPlayerError(error: PlaybackException) {
+                        Log.e(TAG, "ExoPlayer error ${error.errorCodeName}: ${error.message}", error)
                         handlePlaybackError()
                     }
                 })
@@ -246,7 +250,9 @@ class PlayerViewModel(
     private fun loadFixture() {
         viewModelScope.launch(exceptionHandler) {
             _fixture.value = Result.Loading
+            _playerState.value = PlayerState.Loading
             try {
+                app.syncStreamCatalog()
                 val match = footballRepository.getFixtureById(fixtureId)
                 if (match != null) {
                     _fixture.value = Result.Success(match)
@@ -254,10 +260,13 @@ class PlayerViewModel(
                     _fixture.value = Result.Error("Match not found")
                 }
                 val sources = streamRepository.getStreamsForFixture(fixtureId)
+                Log.i(TAG, "Streams for $fixtureId: ${sources.size} catalog=${streamRepository.streamCount()}")
                 _legacyStreams.value = sources
                 allSources = sources.mapIndexed { index, source ->
                     source.toPlaybackSource(index + 1)
                 }
+                currentSourceIndex = 0
+                useProxyForCurrent = false
                 reorderSources()
                 playCurrentSource()
             } catch (e: Exception) {
@@ -349,6 +358,7 @@ class PlayerViewModel(
         val index = _playbackSources.value.indexOfFirst { it.url == source.url }
         if (index >= 0) {
             currentSourceIndex = index
+            useProxyForCurrent = false
             playCurrentSource()
         }
     }
@@ -364,13 +374,14 @@ class PlayerViewModel(
     private fun playCurrentSource() {
         val sources = _playbackSources.value
         if (sources.isEmpty()) {
-            _playerState.value = PlayerState.AllSourcesExhausted
+            _playerState.value = PlayerState.NoStream
             return
         }
         val source = sources.getOrNull(currentSourceIndex) ?: return
         _playerState.value = PlayerState.Loading
         try {
-            val mediaSource = createMediaSource(source)
+            val mediaSource = createMediaSource(source, useProxyForCurrent)
+            Log.i(TAG, "Playing ${source.label} proxy=$useProxyForCurrent url=${source.url}")
             exoPlayer.setMediaSource(mediaSource)
             exoPlayer.prepare()
             exoPlayer.playWhenReady = true
@@ -381,10 +392,13 @@ class PlayerViewModel(
         }
     }
 
-    private fun createMediaSource(source: PlaybackStreamSource): MediaSource {
-        val mediaItem = MediaItem.fromUri(proxiedUrl(source.url))
+    private fun createMediaSource(source: PlaybackStreamSource, proxied: Boolean): MediaSource {
+        val uri = if (proxied) proxiedUrl(source.url) else source.url
+        val mediaItem = MediaItem.fromUri(uri)
         return when (source.type) {
-            StreamType.HLS -> HlsMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
+            StreamType.HLS -> HlsMediaSource.Factory(dataSourceFactory)
+                .setAllowChunklessPreparation(true)
+                .createMediaSource(mediaItem)
             StreamType.DASH -> DashMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
             StreamType.MP4 -> ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(mediaItem)
         }
@@ -392,8 +406,15 @@ class PlayerViewModel(
 
     private fun handlePlaybackError() {
         val failed = _playbackSources.value.getOrNull(currentSourceIndex)
-        Log.w(TAG, "Stream failed: ${failed?.url}")
+        Log.w(TAG, "Stream failed proxy=$useProxyForCurrent: ${failed?.url}")
 
+        if (!useProxyForCurrent && failed != null) {
+            useProxyForCurrent = true
+            playCurrentSource()
+            return
+        }
+
+        useProxyForCurrent = false
         currentSourceIndex++
         val next = _playbackSources.value.getOrNull(currentSourceIndex)
         if (next != null) {
@@ -416,9 +437,19 @@ class PlayerViewModel(
     }
 
     fun retryFromFirstSource() {
-        currentSourceIndex = 0
-        _playerState.value = PlayerState.Loading
-        playCurrentSource()
+        viewModelScope.launch(exceptionHandler) {
+            currentSourceIndex = 0
+            useProxyForCurrent = false
+            _playerState.value = PlayerState.Loading
+            app.syncStreamCatalog()
+            val sources = streamRepository.getStreamsForFixture(fixtureId)
+            _legacyStreams.value = sources
+            allSources = sources.mapIndexed { index, source ->
+                source.toPlaybackSource(index + 1)
+            }
+            reorderSources()
+            playCurrentSource()
+        }
     }
 
     fun toggleMute() {

@@ -115,7 +115,7 @@ fun LazyListScope.homeTodaySection(
     item {
         Spacer(modifier = Modifier.height(8.dp))
         SectionHeader(
-            label = "Today's Fixtures",
+            label = "This Weekend",
             action = "See all",
             onAction = onBrowseFixtures,
             contentPadding = PaddingValuesHome()

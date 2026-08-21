@@ -8,14 +8,18 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
 import android.util.Rational
+import android.view.ContextThemeWrapper
+import android.view.View
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,12 +29,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,11 +45,16 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -53,9 +62,9 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +93,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,7 +109,10 @@ import com.rank.football.ads.RewardedAdManager
 import com.rank.football.cast.CastManager
 import com.rank.football.data.model.FixtureItem
 import com.rank.football.data.model.displayScore
+import com.rank.football.data.model.isFinished
 import com.rank.football.data.model.isLive
+import com.rank.football.data.model.isUpcoming
+import com.rank.football.data.model.kickOffTime
 import com.rank.football.pip.PipActionHandler
 import com.rank.football.pip.PipHelper
 import com.rank.football.ui.components.GoalAlert
@@ -107,10 +120,13 @@ import com.rank.football.ui.components.GoalAlertBus
 import com.rank.football.ui.components.LiveBadge
 import com.rank.football.ui.components.MatchDetailTabs
 import com.rank.football.ui.theme.BarlowCondensed
+import com.rank.football.ui.theme.CardDark
+import com.rank.football.ui.theme.DmSans
+import com.rank.football.ui.theme.GoalYellow
 import com.rank.football.ui.theme.LiveRed
-import com.rank.football.ui.theme.NeonGreen
 import com.rank.football.ui.theme.PitchGreen
 import com.rank.football.ui.theme.StadiumBlack
+import com.rank.football.ui.theme.SurfaceDark
 import com.rank.football.ui.theme.TextGrey
 import com.rank.football.ui.theme.TextWhite
 import com.rank.football.util.Result
@@ -152,6 +168,8 @@ fun WatchScreen(
     val lineups by viewModel.lineups.collectAsState()
     val newGoal by viewModel.newGoalDetected.collectAsState()
     val hdUnlocked by viewModel.hdUnlocked.collectAsState()
+    val buffered by viewModel.bufferedPercentage.collectAsState()
+    val sourceSwitchMessage by viewModel.sourceSwitchMessage.collectAsState()
 
     var showControls by remember { mutableStateOf(true) }
     var controlsKey by remember { mutableIntStateOf(0) }
@@ -161,6 +179,8 @@ fun WatchScreen(
 
     val fixture = (fixtureResult as? Result.Success)?.data
     val isLiveMatch = fixture?.isLive() == true
+    val isPlayingVideo = playerState is PlayerState.Playing || playerState is PlayerState.Buffering
+    val hasStream = playbackSources.isNotEmpty()
 
     fun selectSource(source: PlaybackStreamSource) {
         if (source.requiresRewardedAd && !hdUnlocked) {
@@ -187,8 +207,8 @@ fun WatchScreen(
         if (isLandscape) onEnterFullscreen() else onExitFullscreen()
     }
 
-    LaunchedEffect(showControls, controlsKey) {
-        if (showControls) {
+    LaunchedEffect(showControls, controlsKey, playerState) {
+        if (showControls && isPlayingVideo) {
             delay(4000)
             showControls = false
         }
@@ -216,6 +236,13 @@ fun WatchScreen(
             )
         )
         viewModel.clearGoalCelebration()
+    }
+
+    LaunchedEffect(sourceSwitchMessage) {
+        if (sourceSwitchMessage != null) {
+            delay(2_500)
+            viewModel.clearSourceSwitchMessage()
+        }
     }
 
     BackHandler {
@@ -279,7 +306,6 @@ fun WatchScreen(
                     },
                     onVerticalDrag = { change, dragAmount ->
                         change.consume()
-                        // Rubber-band: resist upward, ease downward
                         val next = dismissOffset + dragAmount * if (dragAmount > 0) 0.85f else 0.35f
                         dismissOffset = next.coerceAtLeast(0f)
                     }
@@ -309,31 +335,55 @@ fun WatchScreen(
                     })
                 }
         ) {
-            AndroidView(
-                modifier = Modifier.fillMaxSize(),
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = viewModel.exoPlayer
-                        useController = false
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    }
-                },
-                update = { it.player = viewModel.exoPlayer }
-            )
+            if (hasStream && playerState !is PlayerState.NoStream) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            player = viewModel.exoPlayer
+                            useController = false
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        }
+                    },
+                    update = { it.player = viewModel.exoPlayer }
+                )
+            } else {
+                PitchLinesOverlay(modifier = Modifier.fillMaxSize())
+            }
 
-            PitchLinesOverlay(modifier = Modifier.fillMaxSize())
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.55f),
+                            0.28f to Color.Transparent,
+                            0.72f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.78f)
+                        )
+                    )
+            )
 
             when (playerState) {
                 is PlayerState.Loading, is PlayerState.Buffering -> {
                     LinearProgressIndicator(
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .fillMaxWidth(0.45f)
+                            .fillMaxWidth(0.42f)
                             .height(3.dp)
                             .clip(RoundedCornerShape(2.dp)),
                         color = PitchGreen,
                         trackColor = TextWhite.copy(alpha = 0.12f),
                         strokeCap = StrokeCap.Round
+                    )
+                }
+                is PlayerState.NoStream -> {
+                    NoBroadcastOverlay(
+                        fixture = fixture,
+                        onRetry = { viewModel.retryFromFirstSource() },
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 24.dp)
                     )
                 }
                 is PlayerState.Error, is PlayerState.AllSourcesExhausted -> {
@@ -345,165 +395,162 @@ fun WatchScreen(
                 else -> Unit
             }
 
-            fixture?.let { f ->
-                VideoScoreboardOverlay(
-                    fixture = f,
-                    modifier = Modifier.align(Alignment.BottomCenter)
-                )
-            }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = showControls || !isPlayingVideo,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    PlayerTopBar(
+                        fixture = fixture,
+                        hasSources = playbackSources.size > 1,
+                        onBack = {
+                            viewModel.pause()
+                            onBack()
+                        },
+                        onSources = { showSources = true },
+                        isMuted = isMuted,
+                        onToggleMute = { viewModel.toggleMute() },
+                        onPip = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                val params = PictureInPictureParams.Builder()
+                                    .setAspectRatio(Rational(16, 9))
+                                    .setActions(
+                                        PipHelper.buildPipActions(
+                                            activity,
+                                            viewModel.exoPlayer.isPlaying
+                                        )
+                                    )
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                    params.setAutoEnterEnabled(true)
+                                }
+                                activity.enterPictureInPictureMode(params.build())
+                            }
+                        },
+                        onFullscreen = {
+                            activity.requestedOrientation = if (isLandscape) {
+                                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            } else {
+                                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                            }
+                        },
+                        isLandscape = isLandscape
+                    )
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showControls,
-                    enter = fadeIn(),
-                    exit = fadeOut(),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Row(
+                    if (hasStream && playerState !is PlayerState.NoStream) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        PlayerCenterControls(
+                            isPlaying = playerState is PlayerState.Playing,
+                            isLive = isLiveMatch,
+                            onRewind = { viewModel.seekBy(-10_000) },
+                            onPlayPause = { viewModel.togglePlayPause() },
+                            onForward = { viewModel.seekBy(10_000) },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(StadiumBlack.copy(alpha = 0.75f))
-                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(onClick = { viewModel.pause(); onBack() }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = TextWhite)
-                            }
-                            fixture?.let { f ->
-                                Column(modifier = Modifier.padding(start = 2.dp)) {
-                                    Text(
-                                        text = "${f.teams.home.name} vs ${f.teams.away.name}",
-                                        color = TextWhite,
-                                        fontFamily = BarlowCondensed,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.widthIn(max = 200.dp)
-                                    )
-                                    if (f.isLive()) {
-                                        LiveBadge(minute = f.fixture.status.elapsed)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (playbackSources.size > 1) {
-                                Text(
-                                    text = "SOURCES",
-                                    color = PitchGreen,
-                                    fontFamily = BarlowCondensed,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    letterSpacing = 1.sp,
-                                    modifier = Modifier
-                                        .clickable { showSources = true }
-                                        .padding(horizontal = 8.dp)
-                                )
-                            }
-                            IconButton(onClick = { viewModel.toggleMute() }) {
-                                Icon(
-                                    if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                    null,
-                                    tint = PitchGreen
-                                )
-                            }
-                            IconButton(onClick = { viewModel.togglePlayPause() }) {
-                                Icon(Icons.Default.PlayArrow, null, tint = PitchGreen)
-                            }
-                            AndroidView(
-                                factory = { ctx ->
-                                    MediaRouteButton(ctx).also { btn ->
-                                        CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, btn)
-                                    }
-                                },
-                                modifier = Modifier.size(36.dp)
-                            )
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                IconButton(onClick = {
-                                    val params = PictureInPictureParams.Builder()
-                                        .setAspectRatio(Rational(16, 9))
-                                        .setActions(
-                                            PipHelper.buildPipActions(
-                                                activity,
-                                                viewModel.exoPlayer.isPlaying
-                                            )
-                                        )
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        params.setAutoEnterEnabled(true)
-                                    }
-                                    activity.enterPictureInPictureMode(params.build())
-                                }) {
-                                    Icon(Icons.Default.PictureInPictureAlt, null, tint = PitchGreen)
-                                }
-                            }
-                            IconButton(onClick = {
-                                activity.requestedOrientation = if (isLandscape) {
-                                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                } else {
-                                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                                }
-                            }) {
-                                Icon(Icons.Default.Fullscreen, null, tint = PitchGreen)
-                            }
-                        }
+                                .padding(bottom = 8.dp)
+                        )
+                    } else {
                         Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    if (isPlayingVideo && buffered in 1..99) {
+                        LinearProgressIndicator(
+                            progress = { buffered / 100f },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            color = PitchGreen,
+                            trackColor = TextWhite.copy(alpha = 0.12f),
+                            strokeCap = StrokeCap.Round
+                        )
                     }
                 }
             }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 6.dp)
-                    .size(width = 44.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(TextWhite.copy(alpha = 0.35f))
-            )
+
+            sourceSwitchMessage?.let { message ->
+                Text(
+                    text = message,
+                    color = TextWhite,
+                    fontFamily = DmSans,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 52.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(SurfaceDark.copy(alpha = 0.92f))
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                )
+            }
+
+            if (!isLandscape) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 8.dp)
+                        .size(width = 40.dp, height = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(TextWhite.copy(alpha = 0.28f))
+                )
+            }
         }
 
         if (!isLandscape) {
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .navigationBarsPadding()
                     .verticalScroll(rememberScrollState())
             ) {
-            fixture?.let { f ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(f.league.name, color = TextGrey, style = MaterialTheme.typography.labelMedium)
-                        Text(
-                            "${f.teams.home.name} vs ${f.teams.away.name}",
-                            color = TextWhite,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Text(
-                        f.displayScore(),
-                        color = NeonGreen,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (f.isLive()) LiveBadge(minute = f.fixture.status.elapsed)
-                    MatchFavoriteToggle(
+                fixture?.let { f ->
+                    MatchCenterCard(
+                        fixture = f,
                         isFavorite = matchFavorite,
-                        onToggle = { matchFavorite = !matchFavorite }
+                        onToggleFavorite = { matchFavorite = !matchFavorite }
                     )
+                }
+
+                if (playbackSources.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.WifiTethering,
+                            contentDescription = null,
+                            tint = PitchGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.watch_sources).uppercase(),
+                            color = TextGrey,
+                            fontFamily = BarlowCondensed,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            letterSpacing = 1.sp
+                        )
+                        playbackSources.forEach { source ->
+                            StreamSourceChip(
+                                source = source,
+                                selected = source.url == viewModel.currentStreamUrl(),
+                                onSelect = { selectSource(source) }
+                            )
+                        }
+                    }
                 }
 
                 MatchDetailTabs(
                     events = events,
                     statistics = statistics,
                     lineups = lineups,
-                    currentMinute = f.fixture.status.elapsed ?: 0,
+                    currentMinute = fixture?.fixture?.status?.elapsed ?: 0,
                     fixtureId = fixtureId,
-                    fixture = f,
+                    fixture = fixture,
                     onEventSeek = { minute ->
                         val duration = viewModel.exoPlayer.duration
                         if (duration > 0) {
@@ -512,23 +559,7 @@ fun WatchScreen(
                         }
                     }
                 )
-            }
-
-            if (playbackSources.size > 1) {
-                LazyRow(
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    items(playbackSources, key = { it.url }) { source ->
-                        StreamSourceChip(
-                            source = source,
-                            selected = source.url == viewModel.currentStreamUrl(),
-                            onSelect = { selectSource(source) }
-                        )
-                    }
-                }
-            }
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -540,12 +571,14 @@ fun WatchScreen(
             dragHandle = { BottomSheetDefaults.DragHandle(color = TextWhite.copy(alpha = 0.3f)) }
         ) {
             Text(
-                text = "SOURCES",
+                text = stringResource(R.string.watch_sources).uppercase(),
                 color = TextGrey,
-                style = MaterialTheme.typography.labelMedium,
+                fontFamily = BarlowCondensed,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
-            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+            Column(modifier = Modifier.padding(bottom = 24.dp, top = 8.dp)) {
                 playbackSources.forEach { source ->
                     val selected = source.url == viewModel.currentStreamUrl()
                     Row(
@@ -563,9 +596,16 @@ fun WatchScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "${source.label} · ${source.quality}",
+                                text = source.label,
                                 color = TextWhite,
-                                fontWeight = FontWeight.Medium
+                                fontFamily = DmSans,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = source.quality,
+                                color = if (selected) PitchGreen else TextGrey,
+                                fontFamily = BarlowCondensed,
+                                fontSize = 12.sp
                             )
                         }
                         if (selected) {
@@ -579,6 +619,327 @@ fun WatchScreen(
 }
 
 @Composable
+private fun PlayerTopBar(
+    fixture: FixtureItem?,
+    hasSources: Boolean,
+    onBack: () -> Unit,
+    onSources: () -> Unit,
+    isMuted: Boolean,
+    onToggleMute: () -> Unit,
+    onPip: () -> Unit,
+    onFullscreen: () -> Unit,
+    isLandscape: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)
+        }
+        fixture?.let { f ->
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${f.teams.home.name} vs ${f.teams.away.name}",
+                    color = TextWhite,
+                    fontFamily = BarlowCondensed,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = f.league.name,
+                        color = TextGrey,
+                        fontFamily = DmSans,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 180.dp)
+                    )
+                    if (f.isLive()) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        LiveBadge(minute = f.fixture.status.elapsed)
+                    }
+                }
+            }
+        } ?: Spacer(modifier = Modifier.weight(1f))
+
+        if (hasSources) {
+            TextButton(onClick = onSources) {
+                Text(
+                    text = "SOURCES",
+                    color = PitchGreen,
+                    fontFamily = BarlowCondensed,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    letterSpacing = 1.sp
+                )
+            }
+        }
+        IconButton(onClick = onToggleMute) {
+            Icon(
+                if (isMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                contentDescription = "Mute",
+                tint = TextWhite
+            )
+        }
+        AndroidView(
+            factory = { ctx ->
+                runCatching {
+                    val themed = ContextThemeWrapper(ctx, androidx.appcompat.R.style.Theme_AppCompat)
+                    MediaRouteButton(themed).also { btn ->
+                        CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, btn)
+                    }
+                }.getOrElse { View(ctx) }
+            },
+            modifier = Modifier.size(36.dp)
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            IconButton(onClick = onPip) {
+                Icon(Icons.Default.PictureInPictureAlt, contentDescription = "PiP", tint = TextWhite)
+            }
+        }
+        IconButton(onClick = onFullscreen) {
+            Icon(Icons.Default.Fullscreen, contentDescription = "Fullscreen", tint = TextWhite)
+        }
+    }
+}
+
+@Composable
+private fun PlayerCenterControls(
+    isPlaying: Boolean,
+    isLive: Boolean,
+    onRewind: () -> Unit,
+    onPlayPause: () -> Unit,
+    onForward: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!isLive) {
+            IconButton(onClick = onRewind) {
+                Icon(Icons.Default.Replay10, contentDescription = "Back 10s", tint = TextWhite, modifier = Modifier.size(32.dp))
+            }
+            Spacer(modifier = Modifier.width(20.dp))
+        }
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(PitchGreen)
+                .clickable(onClick = onPlayPause),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                contentDescription = if (isPlaying) "Pause" else "Play",
+                tint = StadiumBlack,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+        if (!isLive) {
+            Spacer(modifier = Modifier.width(20.dp))
+            IconButton(onClick = onForward) {
+                Icon(Icons.Default.Forward10, contentDescription = "Forward 10s", tint = TextWhite, modifier = Modifier.size(32.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchCenterCard(
+    fixture: FixtureItem,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit
+) {
+    val statusLabel = when {
+        fixture.isLive() -> fixture.fixture.status.long ?: "LIVE"
+        fixture.isFinished() -> fixture.fixture.status.short
+        fixture.isUpcoming() -> stringResource(R.string.watch_kickoff, fixture.kickOffTime())
+        else -> fixture.fixture.status.short
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(CardDark)
+            .border(1.dp, TextWhite.copy(alpha = 0.06f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 18.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = fixture.league.name.uppercase(),
+                color = PitchGreen,
+                fontFamily = BarlowCondensed,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                letterSpacing = 1.2.sp,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = statusLabel,
+                color = if (fixture.isLive()) LiveRed else TextGrey,
+                fontFamily = BarlowCondensed,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                letterSpacing = 0.6.sp
+            )
+            MatchFavoriteToggle(isFavorite = isFavorite, onToggle = onToggleFavorite)
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            MatchTeamBlock(
+                name = fixture.teams.home.name,
+                logo = fixture.teams.home.logo,
+                modifier = Modifier.weight(1f)
+            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                Text(
+                    text = fixture.displayScore(),
+                    color = TextWhite,
+                    fontFamily = BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 42.sp,
+                    letterSpacing = 1.sp
+                )
+                if (fixture.isLive()) {
+                    LiveBadge(minute = fixture.fixture.status.elapsed, large = true)
+                } else if (fixture.isUpcoming()) {
+                    Text(
+                        text = fixture.kickOffTime(),
+                        color = GoalYellow,
+                        fontFamily = BarlowCondensed,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+            MatchTeamBlock(
+                name = fixture.teams.away.name,
+                logo = fixture.teams.away.logo,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MatchTeamBlock(
+    name: String,
+    logo: String?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AsyncImage(
+            model = logo,
+            contentDescription = name,
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(TextWhite.copy(alpha = 0.06f))
+                .padding(8.dp),
+            contentScale = ContentScale.Fit
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = name,
+            color = TextWhite,
+            fontFamily = BarlowCondensed,
+            fontWeight = FontWeight.Bold,
+            fontSize = 14.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun NoBroadcastOverlay(
+    fixture: FixtureItem?,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (fixture != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = fixture.teams.home.logo,
+                    contentDescription = fixture.teams.home.name,
+                    modifier = Modifier.size(36.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Text(
+                    text = "  VS  ",
+                    color = TextGrey,
+                    fontFamily = BarlowCondensed,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp
+                )
+                AsyncImage(
+                    model = fixture.teams.away.logo,
+                    contentDescription = fixture.teams.away.name,
+                    modifier = Modifier.size(36.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+        Text(
+            text = stringResource(R.string.watch_no_stream_title),
+            color = TextWhite,
+            fontFamily = BarlowCondensed,
+            fontWeight = FontWeight.Black,
+            fontSize = 18.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.watch_no_stream_body),
+            color = TextGrey,
+            fontFamily = DmSans,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        TextButton(onClick = onRetry) {
+            Text(
+                text = stringResource(R.string.watch_check_again),
+                color = PitchGreen,
+                fontFamily = BarlowCondensed,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
 private fun PitchLinesOverlay(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val w = size.width
@@ -586,7 +947,7 @@ private fun PitchLinesOverlay(modifier: Modifier = Modifier) {
         val insetX = w * 0.045f
         val insetY = h * 0.05f
         val stroke = Stroke(width = w * 0.006f, cap = StrokeCap.Round)
-        val line = Color.White.copy(alpha = 0.04f)
+        val line = Color.White.copy(alpha = 0.06f)
 
         val outer = Path().apply {
             addRoundRect(
@@ -612,20 +973,6 @@ private fun PitchLinesOverlay(modifier: Modifier = Modifier) {
             lineTo(w - insetX, midY + boxH / 2f)
         }
         drawPath(penalty, line, style = stroke)
-
-        val goalW = w * 0.05f
-        val goalH = h * 0.16f
-        val goal = Path().apply {
-            moveTo(insetX, midY - goalH / 2f)
-            lineTo(insetX + goalW, midY - goalH / 2f)
-            lineTo(insetX + goalW, midY + goalH / 2f)
-            lineTo(insetX, midY + goalH / 2f)
-            moveTo(w - insetX, midY - goalH / 2f)
-            lineTo(w - insetX - goalW, midY - goalH / 2f)
-            lineTo(w - insetX - goalW, midY + goalH / 2f)
-            lineTo(w - insetX, midY + goalH / 2f)
-        }
-        drawPath(goal, line, style = stroke)
     }
 }
 
@@ -634,126 +981,12 @@ private fun MatchFavoriteToggle(
     isFavorite: Boolean,
     onToggle: () -> Unit
 ) {
-    IconButton(onClick = onToggle) {
+    IconButton(onClick = onToggle, modifier = Modifier.size(32.dp)) {
         Icon(
             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
             contentDescription = "Favorite",
             tint = if (isFavorite) LiveRed else TextGrey
         )
-    }
-}
-
-@Composable
-private fun VideoScoreboardOverlay(
-    fixture: FixtureItem,
-    modifier: Modifier = Modifier
-) {
-    val isLive = fixture.isLive()
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.82f))
-                )
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            ScoreboardTeamSide(
-                name = fixture.teams.home.name,
-                logo = fixture.teams.home.logo,
-                alignment = Alignment.Start,
-                modifier = Modifier.weight(1f)
-            )
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(horizontal = 12.dp)
-            ) {
-                Text(
-                    text = fixture.displayScore(),
-                    color = TextWhite,
-                    fontFamily = BarlowCondensed,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 32.sp,
-                    letterSpacing = 2.sp
-                )
-                if (isLive) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LiveBadge(minute = fixture.fixture.status.elapsed)
-                }
-            }
-            ScoreboardTeamSide(
-                name = fixture.teams.away.name,
-                logo = fixture.teams.away.logo,
-                alignment = Alignment.End,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ScoreboardTeamSide(
-    name: String,
-    logo: String?,
-    alignment: Alignment.Horizontal,
-    modifier: Modifier = Modifier
-) {
-    val abbreviated = name.split(" ").firstOrNull()?.take(3)?.uppercase() ?: name.take(3).uppercase()
-    Row(
-        modifier = Modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = if (alignment == Alignment.End) Arrangement.End else Arrangement.Start
-    ) {
-        if (alignment == Alignment.End) {
-            Text(
-                text = abbreviated,
-                color = TextWhite,
-                fontFamily = BarlowCondensed,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                modifier = Modifier.weight(1f, fill = false)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            AsyncImage(
-                model = logo,
-                contentDescription = name,
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(TextGrey.copy(alpha = 0.25f)),
-                contentScale = ContentScale.Fit
-            )
-        } else {
-            AsyncImage(
-                model = logo,
-                contentDescription = name,
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(TextGrey.copy(alpha = 0.25f)),
-                contentScale = ContentScale.Fit
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = abbreviated,
-                color = TextWhite,
-                fontFamily = BarlowCondensed,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
     }
 }
 
@@ -768,9 +1001,9 @@ private fun StreamSourceChip(
         onClick = onSelect,
         label = { Text("${source.label} · ${source.quality}") },
         colors = FilterChipDefaults.filterChipColors(
-            containerColor = StadiumBlack,
+            containerColor = SurfaceDark,
             labelColor = TextWhite,
-            selectedContainerColor = PitchGreen.copy(alpha = 0.3f),
+            selectedContainerColor = PitchGreen.copy(alpha = 0.28f),
             selectedLabelColor = TextWhite
         )
     )
@@ -779,15 +1012,25 @@ private fun StreamSourceChip(
 @Composable
 private fun StreamErrorState(onRetry: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
-            .background(StadiumBlack.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
-            .padding(24.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(StadiumBlack.copy(alpha = 0.92f))
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(stringResource(R.string.stream_unavailable), color = LiveRed)
+        Text(
+            stringResource(R.string.stream_unavailable),
+            color = TextWhite,
+            fontFamily = DmSans,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center
+        )
         Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = onRetry) {
-            Text(stringResource(R.string.retry))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(containerColor = PitchGreen, contentColor = StadiumBlack)
+        ) {
+            Text(stringResource(R.string.retry), fontFamily = BarlowCondensed, fontWeight = FontWeight.Bold)
         }
     }
 }

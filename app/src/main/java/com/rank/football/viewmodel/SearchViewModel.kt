@@ -27,7 +27,6 @@ enum class MatchSearchFilter { ALL, LIVE, TODAY, WEEK }
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = FootballRepository(application)
-    private val streamRepository = (application as GoalStreamApp).streamRepository
     private val context = application.applicationContext
     private val suggestionEngine = SearchSuggestionEngine()
 
@@ -99,7 +98,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             OnboardingPreference.addRecentSearch(context, q)
             _matches.value = Result.Loading
             (getApplication<Application>() as GoalStreamApp).syncStreamCatalog()
-            lastMatchResults = streamRepository.filterStreamable(repository.searchFixtures(q))
+            lastMatchResults = repository.searchFixtures(q)
             val results = applyMatchFilter(lastMatchResults)
             _matches.value = Result.Success(results)
             if (results.isEmpty()) loadAiSuggestions(q)

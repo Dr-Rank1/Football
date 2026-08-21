@@ -91,6 +91,11 @@
     <string name="live_status">LIVE</string>
     <string name="live_minute">LIVE %1$d\'</string>
     <string name="stream_unavailable">Stream unavailable. Try another source.</string>
+    <string name="watch_no_stream_title">No live broadcast</string>
+    <string name="watch_no_stream_body">A stream hasn\'t been configured for this match yet. Scores, lineups, and events still update below.</string>
+    <string name="watch_check_again">Check again</string>
+    <string name="watch_kickoff">Kick-off %1$s</string>
+    <string name="watch_sources">Sources</string>
     <string name="watch_hd_ad">Watch in HD — Watch a short ad</string>
     <string name="hd_unlocked">HD stream unlocked!</string>
 

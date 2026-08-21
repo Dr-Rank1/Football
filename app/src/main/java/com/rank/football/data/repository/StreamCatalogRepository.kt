@@ -35,7 +35,7 @@ class StreamCatalogRepository {
     }
 
     private companion object {
-        const val CATALOG_SYNC_TIMEOUT_MS = 4_000L
+        const val CATALOG_SYNC_TIMEOUT_MS = 8_000L
     }
 
     /** Loads stream entries from the optional HTTP catalog URL. */
